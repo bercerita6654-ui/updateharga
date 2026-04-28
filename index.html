@@ -634,8 +634,8 @@
 
           const fetchFeesData = useCallback(async () => {
               try {
-                const res = await fetch(`${FEES_DB_URL}&t=${Date.now()}`);
-                if (!res.ok) return;
+                const res = await fetch(`${FEES_DB_URL}&t=${Date.now()}`).catch(() => null);
+                if (!res || !res.ok) return;
                 const text = await res.text();
                 const parseLine = (str) => {
                     const arr = []; let q = false, s = 0;
@@ -656,13 +656,14 @@
                     });
                     setFees(newFees);
                 }
-              } catch(e) { console.error('Error fetching fees', e); }
+              } catch(e) { console.warn('Gagal memuat biaya marketplace:', e.message); }
           }, []);
 
           const fetchCsvData = useCallback(async () => {
             setIsLoading(true);
             try {
-              const res = await fetch(`${PRODUCT_DB_URL}&t=${Date.now()}`);
+              const res = await fetch(`${PRODUCT_DB_URL}&t=${Date.now()}`).catch(() => null);
+              if (!res || !res.ok) return;
               const text = await res.text();
               const lines = text.split('\n');
               if (lines.length < 2) return;
@@ -696,7 +697,8 @@
 
               // Fetch Category mapping by SKU
               try {
-                  const resCat = await fetch(`${CATEGORY_DB_URL}&t=${Date.now()}`);
+                  const resCat = await fetch(`${CATEGORY_DB_URL}&t=${Date.now()}`).catch(() => null);
+                  if (!resCat || !resCat.ok) return;
                   const textCat = await resCat.text();
                   const linesCat = textCat.split('\n');
                   if(linesCat.length > 1) {
@@ -723,16 +725,16 @@
                           setCategories(Array.from(catSet).sort());
                       }
                   }
-              } catch(errCat) { console.error('Error fetching categories:', errCat); }
+              } catch(errCat) { console.warn('Gagal memuat kategori:', errCat.message); }
 
-            } catch(e) { console.error(e); } finally { setIsLoading(false); }
+            } catch(e) { console.warn('Gagal memuat produk:', e.message); } finally { setIsLoading(false); }
           }, []);
 
           const fetchHistoryData = useCallback(async () => {
             setIsLoadingHistory(true);
             try {
-                const res = await fetch(`${APPS_SCRIPT_URL}?action=get&t=${Date.now()}`);
-                if(res.ok) {
+                const res = await fetch(`${APPS_SCRIPT_URL}?action=get&t=${Date.now()}`).catch(() => null);
+                if(res && res.ok) {
                     const json = await res.json();
                     if(json.status === 'success' && Array.isArray(json.data)) {
                         const cleanData = json.data.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(d => ({
@@ -741,7 +743,7 @@
                         setSubmissions(cleanData);
                     }
                 }
-            } catch(e){ console.error(e); } finally { setIsLoadingHistory(false); }
+            } catch(e){ console.warn('Gagal memuat riwayat:', e.message); } finally { setIsLoadingHistory(false); }
           }, []);
 
           useEffect(() => { 
