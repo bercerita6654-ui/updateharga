@@ -69,9 +69,9 @@
             const [show, setShow] = useState(false);
 
             const calculate = (basePrice) => {
-                const totalPercent = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
+                const totalPercent = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
                 const decimal = totalPercent / 100;
-                const fixed = fees.marketplaceProcessingFee + fees.jubelioProcessingFee + fees.packingFee;
+                const fixed = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0) + (Number(fees.packingFee) || 0);
                 
                 const safeBasePrice = Number(basePrice) || 0;
                 const safeHpp = Number(values.hpp) || 0;
@@ -508,9 +508,9 @@
 
           // --- LOGIC CALCULATOR ---
           const calculateTier = useCallback((tier, index) => {
-            const totalPercent = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
+            const totalPercent = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
             const decimal = totalPercent / 100;
-            const fixed = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0) + (Number(fees.packingFee) || 0);
+            const fixed = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0) + (Number(fees.packingFee) || 0); // Pake packingFee
             
             const safeBase = Number(product.basePrice) || 0;
             const safeHpp = Number(product.hpp) || 0;
@@ -538,7 +538,8 @@
           // RUMUS YANG DIGUNAKAN BERDASARKAN PERMINTAAN USER:
           const calculateRecommendation = useCallback((marginPercent, qty = 1) => {
               const safeHpp = Number(product.hpp) || 0;
-              const hppWithAdmin = safeHpp * 1.23; // HPP * 123%
+              const totalPercentFee = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
+              const hppWithAdmin = safeHpp * (1 + (totalPercentFee / 100)); // Dynamically calculated
               const withMargin = hppWithAdmin * (1 + (marginPercent / 100)); // * (Misal: 110%)
               
               const activeProcessingFee = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0);
@@ -551,13 +552,15 @@
               if (rounding === '500') return Math.ceil(rawPrice / 500) * 500;
               if (rounding === '1000') return Math.ceil(rawPrice / 1000) * 1000;
               return Math.round(rawPrice); 
-          }, [product.hpp, fees.marketplaceProcessingFee, fees.jubelioProcessingFee, fees.packingFee, rounding]);
+          }, [product.hpp, fees.adminFee, fees.layananXtra, fees.insurance, fees.komisiAMS, fees.marketplaceProcessingFee, fees.jubelioProcessingFee, fees.packingFee, rounding]);
 
           // HELPER KHUSUS UNTUK HITUNGAN KERANJANG AGAR KONSISTEN DENGAN PEMBULATAN
           const calculateItemPrices = useCallback((hpp, margin, fee, packFee, customQtyValue, currentRounding) => {
               const safeHpp = Number(hpp) || 0;
+              const totalPercentFee = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
+              
               const calc = (qty) => {
-                  const hppWithAdmin = safeHpp * 1.23;
+                  const hppWithAdmin = safeHpp * (1 + (totalPercentFee / 100));
                   const withMargin = hppWithAdmin * (1 + (margin / 100));
                   const fixedFeePerItem = (fee + packFee) / (qty || 1);
                   const rawPrice = withMargin + fixedFeePerItem;
@@ -574,7 +577,7 @@
                   priceMin12: calc(12),
                   priceCustom: customQtyValue ? calc(customQtyValue) : null
               };
-          }, []);
+          }, [fees.adminFee, fees.layananXtra, fees.insurance, fees.komisiAMS]);
 
           useEffect(() => {
               if (selectedSku) {
@@ -592,7 +595,7 @@
           const isServer = ['server', 'bobby'].includes(userLower);
           const isAdmin = ['admin', 'stefany', 'isa', 'winda'].includes(userLower);
           const canSeeHPP = isServer;
-          const totalPercentFeeVal = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
+          const totalPercentFeeVal = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
           const filteredProducts = productList.filter(p => {
             const term = searchTerm.toLowerCase().trim();
             if (!term) return true;
@@ -792,7 +795,7 @@
                   partai: selectedProductData?.partai || 0,
                   margin: margin,
                   processingFee: currentProcFee,
-                  packingFee: currentPackFee, 
+                  packingFee: currentPackFee, // Save packing fee to item
                   sellingPrice: prices.sellingPrice,
                   priceMin3: prices.priceMin3, 
                   priceMin6: prices.priceMin6, 
@@ -1691,7 +1694,7 @@
                                                  );
                                              })}
                                          </div>
-                                         <div className="text-[9px] text-slate-400 mt-1 italic">*Klik kotak untuk memakai harga atau copy. Rumus: ((HPP * 123%) * (100% + Margin)) + Proses + Packing</div>
+                                         <div className="text-[9px] text-slate-400 mt-1 italic">*Klik kotak untuk memakai harga atau copy. Rumus: (HPP + Potongan%) * (100% + Margin) + Proses + Packing</div>
                                      </div>
 
                                      {/* TAMBAHAN TAMPILAN GROSIR / PAKET */}
@@ -1760,7 +1763,7 @@
                                                  </div>
                                              )}
                                          </div>
-                                         <div className="text-[9px] text-slate-400 mt-2 italic">*Rumus: ((HPP * 123%) * (100% + Margin)) + (Proses + Packing) / Min Beli. Harga tertera adalah harga per pcs.</div>
+                                         <div className="text-[9px] text-slate-400 mt-2 italic">*Rumus: (HPP + Potongan%) * (100% + Margin) + (Proses + Packing) / Min Beli. Harga tertera adalah harga per pcs.</div>
                                      </div>
                                  </div>
                              </Card>
