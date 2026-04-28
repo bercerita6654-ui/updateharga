@@ -69,9 +69,9 @@
             const [show, setShow] = useState(false);
 
             const calculate = (basePrice) => {
-                const totalPercent = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+                const totalPercent = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
                 const decimal = totalPercent / 100;
-                const fixed = fees.processingFee + fees.packingFee;
+                const fixed = fees.marketplaceProcessingFee + fees.jubelioProcessingFee + fees.packingFee;
                 
                 const safeBasePrice = Number(basePrice) || 0;
                 const safeHpp = Number(values.hpp) || 0;
@@ -444,7 +444,15 @@
           const [activeView, setActiveView] = useState('calculator'); 
           const [displayLimit, setDisplayLimit] = useState(50);
           
-          const [fees, setFees] = useState({ adminFee: 10.0, gratisOngkirXtra: 4.0, layananXtra: 6.0, insurance: 0.5, affiliateFee: 2.5, processingFee: 1500, packingFee: 350 });
+          const [fees, setFees] = useState({ 
+              adminFee: 10.0, 
+              layananXtra: 5.5, 
+              marketplaceProcessingFee: 1250, 
+              jubelioProcessingFee: 350, 
+              insurance: 0.5, 
+              packingFee: 550, 
+              komisiAMS: 1.0 
+          });
           
           const [customQty, setCustomQty] = useState(24);
           const [showCustomQty, setShowCustomQty] = useState(false);
@@ -500,9 +508,9 @@
 
           // --- LOGIC CALCULATOR ---
           const calculateTier = useCallback((tier, index) => {
-            const totalPercent = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+            const totalPercent = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
             const decimal = totalPercent / 100;
-            const fixed = fees.processingFee + fees.packingFee; // Pake packingFee
+            const fixed = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0) + (Number(fees.packingFee) || 0);
             
             const safeBase = Number(product.basePrice) || 0;
             const safeHpp = Number(product.hpp) || 0;
@@ -533,7 +541,7 @@
               const hppWithAdmin = safeHpp * 1.23; // HPP * 123%
               const withMargin = hppWithAdmin * (1 + (marginPercent / 100)); // * (Misal: 110%)
               
-              const activeProcessingFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const activeProcessingFee = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0);
               const activePackingFee = Number(fees.packingFee) || 0;
               const fixedFeePerItem = (activeProcessingFee + activePackingFee) / (qty || 1); 
               
@@ -543,7 +551,7 @@
               if (rounding === '500') return Math.ceil(rawPrice / 500) * 500;
               if (rounding === '1000') return Math.ceil(rawPrice / 1000) * 1000;
               return Math.round(rawPrice); 
-          }, [product.hpp, fees.processingFee, fees.packingFee, rounding]);
+          }, [product.hpp, fees.marketplaceProcessingFee, fees.jubelioProcessingFee, fees.packingFee, rounding]);
 
           // HELPER KHUSUS UNTUK HITUNGAN KERANJANG AGAR KONSISTEN DENGAN PEMBULATAN
           const calculateItemPrices = useCallback((hpp, margin, fee, packFee, customQtyValue, currentRounding) => {
@@ -584,7 +592,7 @@
           const isServer = ['server', 'bobby'].includes(userLower);
           const isAdmin = ['admin', 'stefany', 'isa', 'winda'].includes(userLower);
           const canSeeHPP = isServer;
-          const totalPercentFeeVal = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+          const totalPercentFeeVal = fees.adminFee + fees.layananXtra + fees.insurance + fees.komisiAMS;
           const filteredProducts = productList.filter(p => {
             const term = searchTerm.toLowerCase().trim();
             if (!term) return true;
@@ -765,7 +773,7 @@
               if (!selectedSku) return;
 
               const margin = 10;
-              const currentProcFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const currentProcFee = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0);
               const currentPackFee = Number(fees.packingFee) || 0;
               
               let finalCustomQty = null;
@@ -784,7 +792,7 @@
                   partai: selectedProductData?.partai || 0,
                   margin: margin,
                   processingFee: currentProcFee,
-                  packingFee: currentPackFee, // Save packing fee to item
+                  packingFee: currentPackFee, 
                   sellingPrice: prices.sellingPrice,
                   priceMin3: prices.priceMin3, 
                   priceMin6: prices.priceMin6, 
@@ -800,7 +808,7 @@
 
               const newItems = [];
               const margin = 10;
-              const currentProcFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const currentProcFee = (Number(fees.marketplaceProcessingFee) || 0) + (Number(fees.jubelioProcessingFee) || 0);
               const currentPackFee = Number(fees.packingFee) || 0;
 
               productsArray.forEach((prod, index) => {
@@ -892,7 +900,7 @@
                   if (item.id === id) {
                       const updatedItem = { ...item, [field]: value === '' ? '' : Number(value) };
                       const m = updatedItem.margin;
-                      const fee = Math.max(1500, updatedItem.processingFee || 0);
+                      const fee = updatedItem.processingFee || 0;
                       const packFee = updatedItem.packingFee || 0;
                       
                       const prices = calculateItemPrices(updatedItem.hpp, m, fee, packFee, item.customQtyValue, rounding);
@@ -915,7 +923,7 @@
           const handleRoundingChange = (newRounding) => {
               setRounding(newRounding);
               setCart(prevCart => prevCart.map(item => {
-                  const fee = Math.max(1500, item.processingFee || 0);
+                  const fee = item.processingFee || 0;
                   const packFee = item.packingFee || 0;
                   const prices = calculateItemPrices(item.hpp, item.margin, fee, packFee, item.customQtyValue, newRounding);
                   return {
@@ -934,7 +942,7 @@
 
               setCart(prevCart => prevCart.map(item => {
                   const newMargin = massMargin ? Number(massMargin) : item.margin;
-                  const newFee = massFee ? Math.max(1500, Number(massFee)) : item.processingFee;
+                  const newFee = massFee !== '' ? Number(massFee) : (item.processingFee || 0);
                   const newPackFee = massPack !== '' ? Number(massPack) : (item.packingFee || 0);
                   
                   const prices = calculateItemPrices(item.hpp, newMargin, newFee, newPackFee, item.customQtyValue, rounding);
@@ -1143,7 +1151,7 @@
                           escapeCSV(d.grosir),
                           escapeCSV(d.partai),
                           escapeCSV(`${d.margin || 10}%`), 
-                          escapeCSV(Math.max(1500, d.processingFee || 1500)),
+                          escapeCSV(d.processingFee || 0),
                           escapeCSV(d.packingFee || 0),
                           escapeCSV(d.sellingPrice), 
                           escapeCSV(d.priceMin3), 
@@ -1291,28 +1299,28 @@
                           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
                               <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Admin Fee (%)</label>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Biaya Administrasi (%)</label>
                                       <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.adminFee} onChange={e => setFees({...fees, adminFee: Number(e.target.value)})} />
                                   </div>
                                   <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Gratis Ongkir Xtra (%)</label>
-                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.gratisOngkirXtra} onChange={e => setFees({...fees, gratisOngkirXtra: Number(e.target.value)})} />
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Layanan Xtra (%)</label>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Layanan Promo XTRA (%)</label>
                                       <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.layananXtra} onChange={e => setFees({...fees, layananXtra: Number(e.target.value)})} />
                                   </div>
                                   <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Asuransi (%)</label>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Premi / Asuransi (%)</label>
                                       <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.insurance} onChange={e => setFees({...fees, insurance: Number(e.target.value)})} />
                                   </div>
                                   <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Affiliate Fee (%)</label>
-                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.affiliateFee} onChange={e => setFees({...fees, affiliateFee: Number(e.target.value)})} />
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Komisi AMS (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.komisiAMS} onChange={e => setFees({...fees, komisiAMS: Number(e.target.value)})} />
                                   </div>
                                   <div>
-                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Biaya Layanan (Rp)</label>
-                                      <input type="number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.processingFee} onChange={e => setFees({...fees, processingFee: Number(e.target.value)})} />
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Proses MARKETPLACE (Rp)</label>
+                                      <input type="number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.marketplaceProcessingFee} onChange={e => setFees({...fees, marketplaceProcessingFee: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Proses JUBELIO (Rp)</label>
+                                      <input type="number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.jubelioProcessingFee} onChange={e => setFees({...fees, jubelioProcessingFee: Number(e.target.value)})} />
                                   </div>
                                   <div>
                                       <label className="block text-[10px] font-bold text-slate-700 mb-1">Biaya Packing (Rp)</label>
@@ -1569,28 +1577,40 @@
                                              <p className="text-[9px] text-slate-400 mt-1 italic">*Edit angka ini untuk mengubah perhitungan sementara (tidak mengubah data spreadsheet asli).</p>
                                          </div>
                                      )}
-                                     <div className="grid grid-cols-2 gap-3">
+                                     <div className="grid grid-cols-3 gap-3">
                                          <div>
-                                             <label className="text-[10px] font-bold block mb-1 text-slate-700">Layanan (Min. 1500)</label>
+                                             <label className="text-[10px] font-bold block mb-1 text-slate-700">Marketplace</label>
                                              <div className="relative">
-                                                 <span className="absolute left-2 top-2 text-slate-500 text-xs">Rp</span>
+                                                 <span className="absolute left-2 top-1.5 text-slate-500 text-xs">Rp</span>
                                                  <input 
                                                      type="number" 
-                                                     min="1500"
-                                                     className="w-full p-1.5 pl-7 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
-                                                     value={fees.processingFee} 
-                                                     onChange={e => setFees({...fees, processingFee: e.target.value})} 
-                                                     onBlur={e => setFees({...fees, processingFee: Math.max(1500, Number(e.target.value) || 1500)})}
+                                                     className="w-full p-1.5 pl-6 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                     value={fees.marketplaceProcessingFee} 
+                                                     onChange={e => setFees({...fees, marketplaceProcessingFee: e.target.value})} 
+                                                     onBlur={e => setFees({...fees, marketplaceProcessingFee: Number(e.target.value) || 0})}
+                                                 />
+                                             </div>
+                                         </div>
+                                         <div>
+                                             <label className="text-[10px] font-bold block mb-1 text-slate-700">Jubelio</label>
+                                             <div className="relative">
+                                                 <span className="absolute left-2 top-1.5 text-slate-500 text-xs">Rp</span>
+                                                 <input 
+                                                     type="number" 
+                                                     className="w-full p-1.5 pl-6 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                     value={fees.jubelioProcessingFee} 
+                                                     onChange={e => setFees({...fees, jubelioProcessingFee: e.target.value})} 
+                                                     onBlur={e => setFees({...fees, jubelioProcessingFee: Number(e.target.value) || 0})}
                                                  />
                                              </div>
                                          </div>
                                          <div>
                                              <label className="text-[10px] font-bold block mb-1 text-slate-700">Packing</label>
                                              <div className="relative">
-                                                 <span className="absolute left-2 top-2 text-slate-500 text-xs">Rp</span>
+                                                 <span className="absolute left-2 top-1.5 text-slate-500 text-xs">Rp</span>
                                                  <input 
                                                      type="number" 
-                                                     className="w-full p-1.5 pl-7 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                     className="w-full p-1.5 pl-6 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
                                                      value={fees.packingFee} 
                                                      onChange={e => setFees({...fees, packingFee: e.target.value})} 
                                                      onBlur={e => setFees({...fees, packingFee: Number(e.target.value) || 0})}
@@ -1598,6 +1618,7 @@
                                              </div>
                                          </div>
                                      </div>
+                                     <p className="text-[9px] text-slate-400 mt-1 italic text-right">*Hanya mengubah biaya lokal pada browser.</p>
                                  </div>
 
                              </Card>
@@ -1641,7 +1662,7 @@
                                                  );
                                              })}
                                          </div>
-                                         <div className="text-[9px] text-slate-400 mt-1 italic">*Klik kotak untuk memakai harga atau copy. Rumus: ((HPP * 123%) * (100% + Margin)) + Layanan + Packing</div>
+                                         <div className="text-[9px] text-slate-400 mt-1 italic">*Klik kotak untuk memakai harga atau copy. Rumus: ((HPP * 123%) * (100% + Margin)) + Proses + Packing</div>
                                      </div>
 
                                      {/* TAMBAHAN TAMPILAN GROSIR / PAKET */}
@@ -1710,7 +1731,7 @@
                                                  </div>
                                              )}
                                          </div>
-                                         <div className="text-[9px] text-slate-400 mt-2 italic">*Klik harga untuk meng-copy angkanya.</div>
+                                         <div className="text-[9px] text-slate-400 mt-2 italic">*Rumus: ((HPP * 123%) * (100% + Margin)) + (Proses + Packing) / Min Beli. Harga tertera adalah harga per pcs.</div>
                                      </div>
                                  </div>
                              </Card>
@@ -1767,11 +1788,10 @@
                                                  </select>
                                              </div>
                                              <div>
-                                                 <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Layanan Massal</label>
+                                                 <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Proses Massal</label>
                                                  <input 
                                                      type="number" 
-                                                     min="1500" 
-                                                     placeholder="Min. 1500"
+                                                     placeholder="Misal: 1600"
                                                      className="text-xs p-1.5 border rounded border-slate-300 w-full sm:w-24 bg-white"
                                                      value={massFee}
                                                      onChange={(e) => setMassFee(e.target.value)}
@@ -1808,7 +1828,7 @@
                                                  <th className="p-2 text-right">Grosir</th>
                                                  <th className="p-2 text-right">Partai</th>
                                                  <th className="p-2 text-center bg-blue-50/50">Margin</th>
-                                                 <th className="p-2 text-center bg-blue-50/50">Layanan</th>
+                                                 <th className="p-2 text-center bg-blue-50/50">Proses</th>
                                                  <th className="p-2 text-center bg-blue-50/50">Packing</th>
                                                  <th className="p-2 text-right bg-blue-50">Tayang (Sat)</th>
                                                  <th className="p-2 text-right bg-green-50">Min 3</th>
@@ -1850,10 +1870,9 @@
                                                      <td className="p-2 text-center bg-blue-50/30">
                                                          <input
                                                              type="number"
-                                                             min="1500"
                                                              value={c.processingFee}
                                                              onChange={(e) => updateCartItem(c.id, 'processingFee', e.target.value)}
-                                                             onBlur={(e) => updateCartItem(c.id, 'processingFee', Math.max(1500, Number(e.target.value) || 1500))}
+                                                             onBlur={(e) => updateCartItem(c.id, 'processingFee', Number(e.target.value) || 0)}
                                                              className="w-14 p-1 text-xs border border-blue-200 rounded font-bold text-blue-700 bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
                                                          />
                                                      </td>
