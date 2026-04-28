@@ -424,6 +424,10 @@
           const [showSettings, setShowSettings] = useState(false);
           const [isSavingFees, setIsSavingFees] = useState(false);
 
+          // --- STATE UNTUK PAGINATION CART ---
+          const [cartPage, setCartPage] = useState(1);
+          const [cartItemsPerPage, setCartItemsPerPage] = useState(10);
+
           // Safe Load Submissions
           const [submissions, setSubmissions] = useState(() => {
             try {
@@ -588,6 +592,19 @@
               }
           }, [selectedSku, calculateRecommendation]);
 
+          // Reset cart pagination if items per page changes
+          useEffect(() => {
+              setCartPage(1);
+          }, [cartItemsPerPage]);
+
+          // Ensure cart page is within bounds when items are deleted
+          useEffect(() => {
+              const maxPage = Math.ceil(cart.length / cartItemsPerPage) || 1;
+              if (cartPage > maxPage) {
+                  setCartPage(maxPage);
+              }
+          }, [cart.length, cartItemsPerPage, cartPage]);
+
           const calculateEffectiveDiscount = useCallback((p1, p2, qty) => { const norm = p1 * qty; if (norm <= 0) return 0; return ((norm - p2) / norm) * 100; }, []);
 
           // --- VARS ---
@@ -606,6 +623,11 @@
           const t1Result = calculateTier(null, 0);
           const t1IsLoss = t1Result.profit <= 0;
           
+          // Cart Pagination logic
+          const totalCartPages = Math.ceil(cart.length / cartItemsPerPage) || 1;
+          const currentCartPage = Math.min(cartPage, totalCartPages);
+          const paginatedCart = cart.slice((currentCartPage - 1) * cartItemsPerPage, currentCartPage * cartItemsPerPage);
+
           // Define Filtered Lists
           const pendingList = submissions.filter(s => s.status === 'pending' || s.status === 'revision');
           const completedList = submissions.filter(s => ['completed', 'approved', 'rejected'].includes(s.status));
@@ -1522,6 +1544,28 @@
                                                      </button>
                                                  </div>
                                                  
+                                                 <div className="flex justify-between items-center px-1">
+                                                     <label className="flex items-center gap-2 cursor-pointer" onClick={e => e.stopPropagation()}>
+                                                         <input 
+                                                             type="checkbox" 
+                                                             className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                             checked={filteredProducts.length > 0 && filteredProducts.every(p => multiSelectedSkus.includes(p.sku))}
+                                                             onChange={(e) => {
+                                                                 if (e.target.checked) {
+                                                                     // Tambahkan semua SKU dari hasil pencarian saat ini
+                                                                     const newSkus = filteredProducts.map(p => p.sku).filter(sku => !multiSelectedSkus.includes(sku));
+                                                                     setMultiSelectedSkus([...multiSelectedSkus, ...newSkus]);
+                                                                 } else {
+                                                                     // Hapus semua SKU yang ada di hasil pencarian saat ini dari pilihan
+                                                                     const filteredSkus = filteredProducts.map(p => p.sku);
+                                                                     setMultiSelectedSkus(multiSelectedSkus.filter(sku => !filteredSkus.includes(sku)));
+                                                                 }
+                                                             }}
+                                                         />
+                                                         <span className="text-xs font-bold text-slate-700">Pilih Semua ({filteredProducts.length} Produk)</span>
+                                                     </label>
+                                                 </div>
+
                                                  {multiSelectedSkus.length > 0 && (
                                                      <button 
                                                          onClick={(e) => {
@@ -1879,8 +1923,29 @@
                                          </div>
                                      </div>
                                  )}
+                                 
+                                 {cart.length > 0 && (
+                                     <div className="flex justify-between items-center bg-slate-50 px-3 py-2 border-b border-slate-200">
+                                         <div className="flex items-center gap-2">
+                                             <span className="text-[10px] text-slate-600 font-bold">Tampilkan:</span>
+                                             <select 
+                                                 value={cartItemsPerPage} 
+                                                 onChange={(e) => setCartItemsPerPage(Number(e.target.value))}
+                                                 className="p-1 border border-slate-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                             >
+                                                 <option value={5}>5</option>
+                                                 <option value={10}>10</option>
+                                                 <option value={20}>20</option>
+                                                 <option value={50}>50</option>
+                                             </select>
+                                         </div>
+                                         <div className="text-[10px] text-slate-500 font-medium">
+                                             Total: {cart.length} produk
+                                         </div>
+                                     </div>
+                                 )}
 
-                                 <div className="overflow-x-auto pb-4">
+                                 <div className="overflow-x-auto">
                                      <table className="w-full text-xs text-left whitespace-nowrap">
                                          <thead className="bg-slate-100 font-bold text-slate-600">
                                              <tr>
@@ -1901,7 +1966,7 @@
                                              </tr>
                                          </thead>
                                          <tbody className="divide-y">
-                                             {cart.map(c => (
+                                             {paginatedCart.map(c => (
                                                  <tr key={c.id}>
                                                      <td className="p-2">{c.sku}<br/><span className="text-[10px] text-slate-400 block w-40 whitespace-normal">{c.name}</span></td>
                                                      {canSeeHPP && (
@@ -1991,6 +2056,28 @@
                                          </tbody>
                                      </table>
                                  </div>
+                                 
+                                 {/* PAGINATION CONTROLS FOR CART */}
+                                 {totalCartPages > 1 && (
+                                     <div className="flex justify-center items-center p-3 border-t bg-slate-50 gap-4">
+                                         <button 
+                                             onClick={() => setCartPage(p => Math.max(1, p - 1))} 
+                                             disabled={currentCartPage === 1} 
+                                             className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-30 flex items-center transition-colors text-slate-600"
+                                         >
+                                             <ChevronLeft className="w-4 h-4"/>
+                                         </button>
+                                         <span className="text-[10px] text-slate-600 font-bold">Hal {currentCartPage} dari {totalCartPages}</span>
+                                         <button 
+                                             onClick={() => setCartPage(p => Math.min(totalCartPages, p + 1))} 
+                                             disabled={currentCartPage === totalCartPages} 
+                                             className="p-1 rounded-md hover:bg-slate-200 disabled:opacity-30 flex items-center transition-colors text-slate-600"
+                                         >
+                                             <ChevronRight className="w-4 h-4"/>
+                                         </button>
+                                     </div>
+                                 )}
+
                                  <div className="p-2 text-[9px] text-slate-400 italic bg-slate-50 border-t">*Klik pada harga manapun di tabel ini untuk meng-copy nilainya.</div>
                                  {cart.length > 0 && isAdmin && <div className="p-3 bg-slate-50 border-t"><textarea className="w-full p-2 text-xs border rounded" placeholder="Catatan opsional..." value={submissionNote} onChange={e=>setSubmissionNote(e.target.value)}></textarea></div>}
                              </Card>
