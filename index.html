@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarpApps Pricing</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel Standalone untuk kompilasi JSX di browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50">
+    <!-- Wadah aplikasi React -->
+    <div id="root"></div>
+
+    <!-- Script Utama Aplikasi -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useCallback } from 'https://esm.sh/react@18';
+        import { createRoot } from 'https://esm.sh/react-dom@18/client';
+        import { 
+          Calculator, AlertCircle, TrendingUp, Package, Save, RefreshCw, 
+          DollarSign, ChevronDown, ChevronUp, Search, Database, Info, Tag, 
+          Lightbulb, CheckCircle2, Settings, Box, Users, LogOut, Lock, User, 
+          HelpCircle, ArrowRight, Edit3, ShoppingCart, Trash2, Download, Plus, 
+          Calendar, Send, Inbox, Clock, Check, X, FileText, Globe, Loader2, CheckSquare, Mail, MailOpen, RotateCcw, FileSpreadsheet, Eye, ExternalLink, ChevronLeft, ChevronRight, Filter, Calculator as CalcIcon, Copy
+        } from 'https://esm.sh/lucide-react@0.292.0';
+        import { initializeApp } from 'https://esm.sh/firebase@10.8.1/app';
+        import { getAuth, signInAnonymously, signInWithCustomToken } from 'https://esm.sh/firebase@10.8.1/auth';
+        import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, serverTimestamp } from 'https://esm.sh/firebase@10.8.1/firestore';
+
+        // --- CONFIG ---
+        const PRODUCT_DB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRrRDnJctzeF3FC_-81KzNHZIX3epxC6WwdmIbhXBGl1rlRKvSUfsvsZCZtuiPyULe5b2wJXOIYK8hs/pub?gid=25173144&single=true&output=csv';
+        const CATEGORY_DB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRrRDnJctzeF3FC_-81KzNHZIX3epxC6WwdmIbhXBGl1rlRKvSUfsvsZCZtuiPyULe5b2wJXOIYK8hs/pub?gid=481142784&single=true&output=csv';
+        const FEES_DB_URL = 'https://docs.google.com/spreadsheets/d/1HSUiF20wpTJbfYdpOE08gtbRzm1N8IXOrZDs-KGSvnI/gviz/tq?tqx=out:csv&sheet=BiayaMarketplace';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgZLlREewOckszXJsF2rQYDbXlNq9UxB314iDJ9JQywdSsVkubRdHka44vaHsIYCgw/exec';
+
+        // --- HELPER FUNCTIONS ---
+        const Card = ({ children, className = "" }) => (
+          <div className={`bg-white rounded-xl shadow-sm border border-slate-200 ${className}`}>
+            {children}
+          </div>
+        );
+
+        const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(num) || 0);
+
+        const formatInput = (val) => {
+            if (val === '' || val === null || val === undefined || isNaN(val)) return '';
+            return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        };
+
+        const parseInput = (val) => {
+            if (!val) return '';
+            const strVal = val.toString().replace(/[^0-9]/g, '');
+            if (!strVal) return '';
+            return parseInt(strVal, 10);
+        };
+
+        const formatDateTime = (dateString) => { 
+            if (!dateString) return '-'; 
+            try { return new Date(dateString).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } 
+            catch (e) { return '-'; } 
+        };
+
+        // --- COMPONENT: SERVER QUICK CALCULATOR ---
+        const ServerQuickCalculator = ({ fees }) => {
+            const [values, setValues] = useState({ hpp: 50000, eceran: 100000 });
+            const [show, setShow] = useState(false);
+
+            const calculate = (basePrice) => {
+                const totalPercent = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+                const decimal = totalPercent / 100;
+                const fixed = fees.processingFee + fees.packingFee;
+                
+                const safeBasePrice = Number(basePrice) || 0;
+                const safeHpp = Number(values.hpp) || 0;
+
+                let sellingPrice = 0;
+                let totalNet = safeBasePrice;
+                
+                if (1 - decimal > 0) sellingPrice = (totalNet + fixed) / (1 - decimal);
+                sellingPrice = Math.round(sellingPrice); 
+
+                const percentFeeVal = sellingPrice * decimal;
+                const totalDed = percentFeeVal + fixed;
+                const netRevenue = sellingPrice - totalDed;
+                
+                // HPP Total
+                const totalHPP = safeHpp;
+                const profit = netRevenue - totalHPP;
+                const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+
+                return { sellingPrice, netRevenue, profit, margin };
+            };
+
+            const t1 = calculate(values.eceran);
+
+            return (
+                <div className="mb-6 border border-indigo-200 bg-indigo-50/50 rounded-xl overflow-hidden">
+                    <div className="p-3 bg-indigo-100/80 flex justify-between items-center cursor-pointer" onClick={() => setShow(!show)}>
+                        <h3 className="font-bold text-indigo-800 flex items-center text-sm"><CalcIcon className="w-4 h-4 mr-2"/> Kalkulator Cepat (Bantu Hitung Saran)</h3>
+                        {show ? <ChevronUp className="w-4 h-4 text-indigo-600"/> : <ChevronDown className="w-4 h-4 text-indigo-600"/>}
+                    </div>
+                    {show && (
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2 border-r border-indigo-200 pr-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-indigo-600 uppercase">HPP (Modal)</label>
+                                    <input type="text" inputMode="numeric" className="w-full p-1.5 border rounded text-xs" value={formatInput(values.hpp)} onChange={e => setValues({...values, hpp: parseInput(e.target.value)})} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-indigo-600 uppercase">Input Eceran</label>
+                                    <input type="text" inputMode="numeric" className="w-full p-1.5 border rounded text-xs" value={formatInput(values.eceran)} onChange={e => setValues({...values, eceran: parseInput(e.target.value)})} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-center border-b pb-1">Hasil Satuan</h4>
+                                <div className="flex justify-between text-xs"><span>Tayang:</span> <span className="font-bold">{formatIDR(t1.sellingPrice)}</span></div>
+                                <div className="flex justify-between text-xs"><span>Net:</span> <span className="font-bold text-green-600">{formatIDR(t1.netRevenue)}</span></div>
+                                <div className="flex justify-between text-xs"><span>Profit:</span> <span className={`${t1.profit < 0 ? 'text-red-600' : 'text-blue-600'}`}>{formatIDR(t1.profit)}</span></div>
+                                <div className="flex justify-between text-xs"><span>Margin:</span> <span className="font-bold">{t1.margin.toFixed(1)}%</span></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- COMPONENT: SUBMISSION CARD ---
+        const SubmissionCard = ({ sub, currentUser, isServer, isAdmin, canSeeHPP, serverDrafts, expandedSubmissionId, onToggle, onDraftChange, onUpdateStatus, onEdit, productList }) => {
+            let statusColor = 'bg-yellow-100 text-yellow-600';
+            let statusBadgeColor = 'bg-yellow-50 text-yellow-700 border-yellow-200';
+            let StatusIcon = MailOpen;
+
+            if (sub.status === 'revision') {
+                statusColor = 'bg-orange-100 text-orange-600';
+                statusBadgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
+                StatusIcon = RefreshCw;
+            } else if (sub.status === 'completed' || sub.status === 'approved') {
+                statusColor = 'bg-green-100 text-green-600';
+                statusBadgeColor = 'bg-green-50 text-green-700 border-green-200';
+                StatusIcon = CheckCircle2;
+            } else if (sub.status === 'rejected') {
+                statusColor = 'bg-red-100 text-red-600';
+                statusBadgeColor = 'bg-red-50 text-red-700 border-red-200';
+                StatusIcon = AlertCircle;
+            }
+
+            if (sub.status === 'pending' && isServer && !sub.isRead) {
+                StatusIcon = Mail;
+            }
+
+            const displayStatusName = sub.status === 'completed' ? 'Selesai' : sub.status === 'revision' ? 'Revisi' : sub.status;
+            const isCompetitorSub = sub.items && sub.items.length > 0 && sub.items[0]?.isCompetitorData;
+            const isOwner = sub.sender === currentUser;
+
+            return (
+                <div className={`bg-white rounded-xl shadow-sm border transition-all ${sub.isRead || !isServer ? 'border-slate-200' : 'border-blue-300 ring-1 ring-blue-100'}`}>
+                    <div className={`p-4 flex justify-between items-center cursor-pointer transition-colors ${sub.isRead || !isServer ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/60'}`} onClick={() => onToggle(sub.id)}>
+                        <div className="flex items-center space-x-4">
+                            <div className={`p-2 rounded-full ${statusColor}`}>
+                                <StatusIcon className="w-5 h-5"/>
+                            </div>
+                            <div>
+                                <div className={`flex items-center gap-2 ${!sub.isRead && isServer ? 'font-extrabold text-blue-900' : 'font-bold text-slate-800'}`}>
+                                    {isCompetitorSub ? 'Review Kompetitor' : 'Pengajuan Harga'} #{String(sub.id).slice(-4)} 
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase border font-bold ${statusBadgeColor}`}>{displayStatusName}</span>
+                                    {!sub.isRead && isServer && <span className="w-2 h-2 rounded-full bg-blue-600 ml-1"></span>}
+                                </div>
+                                <div className="text-xs text-slate-500">Dari: <span className="font-medium text-slate-700 uppercase">{String(sub.sender)}</span> &bull; {formatDateTime(sub.timestamp)} &bull; {Number(sub.totalItems) || 0} Item</div>
+                            </div>
+                        </div>
+                        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${expandedSubmissionId === sub.id ? 'rotate-180' : ''}`}/>
+                    </div>
+                    
+                    {expandedSubmissionId === sub.id && (
+                        <div className="p-4 bg-slate-50/50 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
+                            {sub.clientNote && (
+                                <div className="mb-4 p-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 flex items-start shadow-sm">
+                                    <User className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                                    <div><span className="font-bold">Catatan <span className="capitalize">{String(sub.sender)}</span>:</span> {String(sub.clientNote)}</div>
+                                </div>
+                            )}
+                            {sub.serverNote && (
+                                <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800 flex items-start">
+                                    <Info className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                                    <div><span className="font-bold">Catatan Server:</span> {String(sub.serverNote)}</div>
+                                </div>
+                            )}
+
+                            <div className="overflow-x-auto mb-4 border rounded-lg bg-white">
+                                {isCompetitorSub ? (
+                                    <table className="w-full text-xs text-left">
+                                        <thead className="bg-slate-100 text-slate-600 font-medium">
+                                            <tr>
+                                                {isServer && sub.status === 'pending' && <th className="px-3 py-2 w-10 text-center"><CheckSquare className="w-4 h-4 mx-auto"/></th>}
+                                                {isAdmin && sub.status !== 'pending' && <th className="px-3 py-2 w-10 text-center">Sts</th>}
+                                                <th className="px-3 py-2">Produk Kita</th>
+                                                
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">HPP</th>}
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">Eceran</th>}
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">Grosir</th>}
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">Partai</th>}
+                                                
+                                                <th className="px-3 py-2 text-right bg-blue-50">Harga Tayang Kita</th>
+                                                <th className="px-3 py-2 border-l border-slate-200 bg-red-50">Komp A</th>
+                                                <th className="px-3 py-2 text-right bg-red-50">Harga A</th>
+                                                <th className="px-3 py-2 text-center bg-red-50">Link A</th>
+                                                <th className="px-3 py-2 border-l border-slate-200 bg-red-50">Komp B</th>
+                                                <th className="px-3 py-2 text-right bg-red-50">Harga B</th>
+                                                <th className="px-3 py-2 text-center bg-red-50">Link B</th>
+                                                <th className="px-3 py-2 text-right bg-yellow-100 border-l border-slate-200 w-32">Saran Harga</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {(sub.items || []).map((item, idx) => {
+                                                if(!item) return null;
+                                                const compA_Name = item.compAName || item.compName || '-';
+                                                const compA_Price = item.compAPrice || item.compPrice || 0;
+                                                const compA_Link = item.compALink || item.compLink || '';
+                                                
+                                                const liveData = (productList || []).find(p => p.sku === item.sku) || {};
+                                                const refHpp = liveData.hpp || item.hpp || 0;
+                                                const refEceran = liveData.eceran || item.eceran || 0;
+                                                const refGrosir = liveData.grosir || item.grosir || 0;
+                                                const refPartai = liveData.partai || item.partai || 0;
+
+                                                return (
+                                                <tr key={idx} className={item.itemStatus === 'rejected' ? 'bg-red-50/50' : item.itemStatus === 'approved' ? 'bg-green-50/50' : item.itemStatus === 'revision' ? 'bg-orange-50/50' : ''}>
+                                                    {isServer && sub.status === 'pending' && (
+                                                        <td className="px-3 py-2 text-center">
+                                                            <input type="checkbox" className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={!!serverDrafts[sub.id]?.checkedItems?.[item.sku]} onChange={() => onDraftChange(sub.id, 'check', null, item.sku)} />
+                                                        </td>
+                                                    )}
+                                                    {isAdmin && sub.status !== 'pending' && (
+                                                        <td className="px-3 py-2 text-center">
+                                                            {item.itemStatus === 'approved' ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto"/> : item.itemStatus === 'revision' ? <RefreshCw className="w-4 h-4 text-orange-500 mx-auto"/> : <X className="w-4 h-4 text-red-500 mx-auto"/>}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-3 py-2">
+                                                        <div className="font-medium text-slate-800 whitespace-nowrap">{String(item.name || '')}</div>
+                                                        <div className="text-[10px] text-slate-500 font-mono">{String(item.sku || '')}</div>
+                                                    </td>
+
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(refHpp)}</td>}
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(refEceran)}</td>}
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(refGrosir)}</td>}
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(refPartai)}</td>}
+
+                                                    <td className="px-3 py-2 text-right bg-blue-50/30 font-bold text-slate-700 whitespace-nowrap">{formatIDR(item.ownPrice)}</td>
+                                                    <td className="px-3 py-2 border-l border-slate-200 bg-red-50/30 font-medium text-slate-800 whitespace-nowrap">{compA_Name}</td>
+                                                    <td className="px-3 py-2 text-right bg-red-50/30 font-bold text-red-700 whitespace-nowrap">{formatIDR(compA_Price)}</td>
+                                                    <td className="px-3 py-2 text-center bg-red-50/30">
+                                                        {compA_Link ? <a href={String(compA_Link)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 bg-white p-1 rounded inline-block shadow-sm"><ExternalLink className="w-3.5 h-3.5"/></a> : '-'}
+                                                    </td>
+                                                    <td className="px-3 py-2 border-l border-slate-200 bg-red-50/30 font-medium text-slate-800 whitespace-nowrap">{item.compBName || '-'}</td>
+                                                    <td className="px-3 py-2 text-right bg-red-50/30 font-bold text-red-700 whitespace-nowrap">{item.compBPrice ? formatIDR(item.compBPrice) : '-'}</td>
+                                                    <td className="px-3 py-2 text-center bg-red-50/30">
+                                                        {item.compBLink ? <a href={String(item.compBLink)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 bg-white p-1 rounded inline-block shadow-sm"><ExternalLink className="w-3.5 h-3.5"/></a> : '-'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right bg-yellow-50 border-l border-slate-200">
+                                                        {isServer && (sub.status === 'pending' || sub.status === 'revision') ? (
+                                                            <input type="text" inputMode="numeric" className="w-full text-right p-1.5 text-xs border border-yellow-400 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 font-bold" placeholder="Saran" onChange={(e) => onDraftChange(sub.id, 'revision', parseInput(e.target.value), item.sku)} value={formatInput(serverDrafts[sub.id]?.revisions?.[item.sku])} />
+                                                        ) : (
+                                                            <span className="font-bold text-yellow-700 whitespace-nowrap">{sub.revisions?.[item.sku] ? formatIDR(sub.revisions[item.sku]) : '-'}</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )})}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <table className="w-full text-xs text-left">
+                                        <thead className="bg-slate-100 text-slate-600 font-medium">
+                                            <tr>
+                                                {isServer && sub.status === 'pending' && <th className="px-3 py-2 w-10 text-center"><CheckSquare className="w-4 h-4 mx-auto"/></th>}
+                                                {isAdmin && sub.status !== 'pending' && <th className="px-3 py-2 w-10 text-center">Sts</th>}
+                                                <th className="px-3 py-2">Produk Kita</th>
+                                                
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">HPP</th>}
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">Eceran</th>}
+                                                {canSeeHPP && <th className="px-3 py-2 text-right bg-red-50 text-red-800">Grosir</th>}
+                                                
+                                                <th className="px-3 py-2 text-right bg-blue-50/50">Satuan</th>
+                                                <th className="px-3 py-2 text-right bg-green-50/50">Min 3</th>
+                                                <th className="px-3 py-2 text-right bg-green-50/50">Min 6</th>
+                                                <th className="px-3 py-2 text-right bg-green-50/50">Min 12</th>
+                                                <th className="px-3 py-2 text-right bg-green-50/50">Custom</th>
+
+                                                {((isServer && sub.status === 'pending') || (sub.revisions && Object.keys(sub.revisions || {}).some(k => !k.includes('_pkg') && k !== '_clientNote'))) && (
+                                                    <th className="px-3 py-2 text-right w-28 bg-yellow-50">Saran (Sat)</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {(sub.items || []).map((item, idx) => {
+                                                if(!item) return null;
+                                                return (
+                                                <tr key={idx} className={item.itemStatus === 'rejected' ? 'bg-red-50/50' : item.itemStatus === 'approved' ? 'bg-green-50/50' : item.itemStatus === 'revision' ? 'bg-orange-50/50' : ''}>
+                                                    {isServer && sub.status === 'pending' && (
+                                                        <td className="px-3 py-2 text-center">
+                                                            <input type="checkbox" className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={!!serverDrafts[sub.id]?.checkedItems?.[item.sku]} onChange={() => onDraftChange(sub.id, 'check', null, item.sku)} />
+                                                        </td>
+                                                    )}
+                                                    {isAdmin && sub.status !== 'pending' && (
+                                                        <td className="px-3 py-2 text-center">
+                                                            {item.itemStatus === 'approved' ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto"/> : item.itemStatus === 'revision' ? <RefreshCw className="w-4 h-4 text-orange-500 mx-auto"/> : <X className="w-4 h-4 text-red-500 mx-auto"/>}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-3 py-2">
+                                                        <div className="font-medium text-slate-800 whitespace-nowrap">{String(item.name || '')}</div>
+                                                        <div className="text-[10px] text-slate-500 font-mono">{String(item.sku || '')}</div>
+                                                    </td>
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(item.hpp)}</td>}
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(item.eceran || item.basePrice || 0)}</td>}
+                                                    {canSeeHPP && <td className="px-3 py-2 text-right bg-red-50 text-red-800 font-mono">{formatIDR(item.grosir || 0)}</td>}
+                                                    
+                                                    <td className="px-3 py-2 text-right bg-blue-50/30">
+                                                        <div className="font-bold text-slate-800">{formatIDR(item.sellingPrice)}</div>
+                                                        <div className="text-[9px] text-blue-600 font-medium">Margin: {item.margin || 10}%</div>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right bg-green-50/30 font-medium text-green-800">{formatIDR(item.priceMin3)}</td>
+                                                    <td className="px-3 py-2 text-right bg-green-50/30 font-medium text-green-800">{formatIDR(item.priceMin6)}</td>
+                                                    <td className="px-3 py-2 text-right bg-green-50/30 font-medium text-green-800">{formatIDR(item.priceMin12)}</td>
+                                                    <td className="px-3 py-2 text-right bg-green-50/30 font-medium text-green-800">
+                                                        {item.customQtyValue ? (
+                                                            <div>
+                                                                <div>{formatIDR(item.priceCustom)}</div>
+                                                                <div className="text-[9px] text-green-700 opacity-80">Min: {item.customQtyValue}</div>
+                                                            </div>
+                                                        ) : '-'}
+                                                    </td>
+
+                                                    {((isServer && sub.status === 'pending') || (sub.revisions && Object.keys(sub.revisions || {}).some(k => !k.includes('_pkg') && k !== '_clientNote'))) ? (
+                                                        <td className="px-2 py-1 text-right bg-yellow-50">
+                                                            {isServer && sub.status === 'pending' ? (
+                                                                <input type="text" inputMode="numeric" className="w-full text-right p-1 text-xs border border-yellow-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder={String(item.sellingPrice)} onChange={(e) => onDraftChange(sub.id, 'revision', parseInput(e.target.value), item.sku)} value={formatInput(serverDrafts[sub.id]?.revisions?.[item.sku])} />
+                                                            ) : (<span className="font-bold text-yellow-700">{sub.revisions?.[item.sku] ? formatIDR(sub.revisions[item.sku]) : '-'}</span>)}
+                                                        </td>
+                                                    ) : null}
+                                                </tr>
+                                            )})}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-2">
+                                 {isServer && sub.status !== 'pending' && (
+                                     <button onClick={() => onUpdateStatus(sub.id, 'pending')} className="flex items-center text-xs text-blue-600 hover:text-blue-800 font-bold"><RotateCcw className="w-3.5 h-3.5 mr-1"/> Edit / Tinjau Ulang</button>
+                                 )}
+                                 {isServer && sub.status === 'pending' && (
+                                    <div className="w-full">
+                                        <label className="block text-xs font-semibold text-slate-700 mb-2">Tambahkan Catatan / Arahan Revisi:</label>
+                                        <textarea className="w-full p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none mb-4" rows="2" placeholder="Catatan untuk admin..." value={serverDrafts[sub.id]?.note || ''} onChange={(e) => onDraftChange(sub.id, 'note', e.target.value)}></textarea>
+                                        <div className="flex gap-3 justify-end items-center flex-wrap">
+                                            <div className="text-[10px] text-slate-500 mr-auto flex items-center bg-slate-100 px-2 py-1 rounded"><Info className="w-3 h-3 mr-1" />Item yg <strong>tidak dicentang</strong> = Ditolak</div>
+                                            <button onClick={() => onUpdateStatus(sub.id, 'rejected')} className="flex items-center px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-bold text-xs transition-colors"><X className="w-4 h-4 mr-1"/> Tolak Semua</button>
+                                            <button onClick={() => onUpdateStatus(sub.id, 'revision')} className="flex items-center px-4 py-2 bg-white border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 font-bold text-xs transition-colors"><RefreshCw className="w-4 h-4 mr-1"/> Revisi Kembali</button>
+                                            <button onClick={() => onUpdateStatus(sub.id, 'reviewed')} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-xs transition-colors shadow-sm"><Check className="w-4 h-4 mr-1"/> Proses Persetujuan</button>
+                                        </div>
+                                    </div>
+                                )}
+                                {isAdmin && sub.status === 'revision' && isOwner && (
+                                    <div className="w-full flex justify-end">
+                                        <button onClick={() => onEdit(sub)} className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold text-xs transition-colors shadow-sm animate-pulse"><Edit3 className="w-4 h-4 mr-1.5"/> Edit Data & Kirim Ulang</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        function App() {
+          const [isLoggedIn, setIsLoggedIn] = useState(false);
+          const [currentUser, setCurrentUser] = useState(null); 
+          const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+          const [loginError, setLoginError] = useState('');
+
+          const [db, setDb] = useState(null);
+          const [appId, setAppId] = useState(null);
+          const [isOnline, setIsOnline] = useState(false);
+          
+          const [product, setProduct] = useState({ hpp: 50000, basePrice: 100000 });
+          const [productList, setProductList] = useState([]);
+          const [isLoading, setIsLoading] = useState(false);
+          const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+          const [isSending, setIsSending] = useState(false);
+          const [lastUpdated, setLastUpdated] = useState(null);
+          const [selectedSku, setSelectedSku] = useState('');
+          const [searchTerm, setSearchTerm] = useState('');
+          
+          const [cart, setCart] = useState([]);
+          const [competitorCart, setCompetitorCart] = useState([]); 
+          const [submissionNote, setSubmissionNote] = useState(''); 
+          const [editingSubmissionId, setEditingSubmissionId] = useState(null); 
+          
+          const [compForm, setCompForm] = useState({ ownPrice: '', compAName: '', compAPrice: '', compALink: '', compBName: '', compBPrice: '', compBLink: '' });
+
+          // --- STATE UNTUK PEMBULATAN & MASS UPDATE ---
+          const [rounding, setRounding] = useState('none');
+          const [massMargin, setMassMargin] = useState('');
+          const [massFee, setMassFee] = useState('');
+          const [massPack, setMassPack] = useState(''); // State Packing Massal
+          
+          // --- STATE UNTUK BATCH ADD DROPDOWN ---
+          const [multiSelectedSkus, setMultiSelectedSkus] = useState([]);
+
+          // --- STATE UNTUK ADD BY BRAND & CATEGORY ---
+          const [showAddBrandModal, setShowAddBrandModal] = useState(false);
+          const [brandSearchTerm, setBrandSearchTerm] = useState('');
+          const [brandSearchResults, setBrandSearchResults] = useState([]);
+
+          const [categories, setCategories] = useState([]);
+          const [skuCategoryMap, setSkuCategoryMap] = useState({});
+          const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+          const [selectedCategory, setSelectedCategory] = useState('');
+          const [categorySearchResults, setCategorySearchResults] = useState([]);
+
+          // --- STATE UNTUK SETTINGS ---
+          const [showSettings, setShowSettings] = useState(false);
+          const [isSavingFees, setIsSavingFees] = useState(false);
+
+          // Safe Load Submissions
+          const [submissions, setSubmissions] = useState(() => {
+            try {
+              const saved = localStorage.getItem('marketplace_submissions');
+              if (!saved) return [];
+              const parsed = JSON.parse(saved);
+              if (!Array.isArray(parsed)) return [];
+              return parsed.map(s => ({
+                  ...s,
+                  items: Array.isArray(s.items) ? s.items.filter(i => i) : [],
+                  revisions: s.revisions || {}
+              }));
+            } catch (e) { return []; }
+          }); 
+          
+          const [serverDrafts, setServerDrafts] = useState({}); 
+          const [expandedSubmissionId, setExpandedSubmissionId] = useState(null);
+          const [activeView, setActiveView] = useState('calculator'); 
+          const [displayLimit, setDisplayLimit] = useState(50);
+          
+          const [fees, setFees] = useState({ adminFee: 10.0, gratisOngkirXtra: 4.0, layananXtra: 6.0, insurance: 0.5, affiliateFee: 2.5, processingFee: 1500, packingFee: 350 });
+          
+          const [customQty, setCustomQty] = useState(24);
+          const [showCustomQty, setShowCustomQty] = useState(false);
+          const [showFeeSettings, setShowFeeSettings] = useState(false);
+          const [showProductList, setShowProductList] = useState(false);
+          const [isRefreshing, setIsRefreshing] = useState(false);
+          const [confirmClear, setConfirmClear] = useState(false);
+          const [notification, setNotification] = useState('');
+
+          const showNotif = (msg) => {
+              setNotification(msg);
+              setTimeout(() => setNotification(''), 3000);
+          };
+
+          const handleCopyPrice = (price, e) => {
+              if (e) e.stopPropagation();
+              if (!price) return;
+              const textToCopy = Math.round(price).toString();
+              
+              const fallbackCopy = (text) => {
+                  const textArea = document.createElement("textarea");
+                  textArea.value = text;
+                  
+                  // Menghindari browser scroll otomatis ke textarea
+                  textArea.style.position = "fixed";
+                  textArea.style.top = "0";
+                  textArea.style.left = "0";
+                  textArea.style.width = "2em";
+                  textArea.style.height = "2em";
+                  textArea.style.padding = "0";
+                  textArea.style.border = "none";
+                  textArea.style.outline = "none";
+                  textArea.style.boxShadow = "none";
+                  textArea.style.background = "transparent";
+                  
+                  document.body.appendChild(textArea);
+                  textArea.focus();
+                  textArea.select();
+                  try { document.execCommand('copy'); } catch (err) {}
+                  document.body.removeChild(textArea);
+              };
+
+              fallbackCopy(textToCopy);
+              showNotif(`Harga disalin: ${textToCopy}`);
+          };
+
+          // --- Pagination & Filtering State ---
+          const ITEMS_PER_PAGE = 5;
+          const [pendingPage, setPendingPage] = useState(1);
+          const [completedPage, setCompletedPage] = useState(1);
+          const [pendingFilter, setPendingFilter] = useState('all'); 
+          const [completedFilter, setCompletedFilter] = useState('all');
+
+          // --- LOGIC CALCULATOR ---
+          const calculateTier = useCallback((tier, index) => {
+            const totalPercent = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+            const decimal = totalPercent / 100;
+            const fixed = fees.processingFee + fees.packingFee; // Pake packingFee
+            
+            const safeBase = Number(product.basePrice) || 0;
+            const safeHpp = Number(product.hpp) || 0;
+
+            let sellingPrice = safeBase;
+            
+            const percentFeeVal = sellingPrice * decimal;
+            const totalDed = percentFeeVal + fixed;
+            const net = sellingPrice - totalDed;
+            const profit = net - safeHpp;
+            const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+            
+            return { 
+                sellingPrice, 
+                percentFeeValue: percentFeeVal, 
+                fixedFeeValue: fixed, 
+                totalDeduction: totalDed, 
+                netRevenue: net, 
+                profit, 
+                margin, 
+                totalHPP: safeHpp 
+            };
+          }, [product, fees]);
+
+          // RUMUS YANG DIGUNAKAN BERDASARKAN PERMINTAAN USER:
+          const calculateRecommendation = useCallback((marginPercent, qty = 1) => {
+              const safeHpp = Number(product.hpp) || 0;
+              const hppWithAdmin = safeHpp * 1.23; // HPP * 123%
+              const withMargin = hppWithAdmin * (1 + (marginPercent / 100)); // * (Misal: 110%)
+              
+              const activeProcessingFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const activePackingFee = Number(fees.packingFee) || 0;
+              const fixedFeePerItem = (activeProcessingFee + activePackingFee) / (qty || 1); 
+              
+              const rawPrice = withMargin + fixedFeePerItem;
+              
+              if (rounding === '100') return Math.ceil(rawPrice / 100) * 100;
+              if (rounding === '500') return Math.ceil(rawPrice / 500) * 500;
+              if (rounding === '1000') return Math.ceil(rawPrice / 1000) * 1000;
+              return Math.round(rawPrice); 
+          }, [product.hpp, fees.processingFee, fees.packingFee, rounding]);
+
+          // HELPER KHUSUS UNTUK HITUNGAN KERANJANG AGAR KONSISTEN DENGAN PEMBULATAN
+          const calculateItemPrices = useCallback((hpp, margin, fee, packFee, customQtyValue, currentRounding) => {
+              const safeHpp = Number(hpp) || 0;
+              const calc = (qty) => {
+                  const hppWithAdmin = safeHpp * 1.23;
+                  const withMargin = hppWithAdmin * (1 + (margin / 100));
+                  const fixedFeePerItem = (fee + packFee) / (qty || 1);
+                  const rawPrice = withMargin + fixedFeePerItem;
+                  if (currentRounding === '100') return Math.ceil(rawPrice / 100) * 100;
+                  if (currentRounding === '500') return Math.ceil(rawPrice / 500) * 500;
+                  if (currentRounding === '1000') return Math.ceil(rawPrice / 1000) * 1000;
+                  return Math.round(rawPrice);
+              };
+
+              return {
+                  sellingPrice: calc(1),
+                  priceMin3: calc(3),
+                  priceMin6: calc(6),
+                  priceMin12: calc(12),
+                  priceCustom: customQtyValue ? calc(customQtyValue) : null
+              };
+          }, []);
+
+          useEffect(() => {
+              if (selectedSku) {
+                  const autoPrice = calculateRecommendation(10, 1);
+                  if (autoPrice > 0) {
+                      setProduct(prev => ({ ...prev, basePrice: autoPrice }));
+                  }
+              }
+          }, [selectedSku, calculateRecommendation]);
+
+          const calculateEffectiveDiscount = useCallback((p1, p2, qty) => { const norm = p1 * qty; if (norm <= 0) return 0; return ((norm - p2) / norm) * 100; }, []);
+
+          // --- VARS ---
+          const userLower = String(currentUser || '').toLowerCase();
+          const isServer = ['server', 'bobby'].includes(userLower);
+          const isAdmin = ['admin', 'stefany', 'isa', 'winda'].includes(userLower);
+          const canSeeHPP = isServer;
+          const totalPercentFeeVal = fees.adminFee + fees.gratisOngkirXtra + fees.layananXtra + fees.insurance + fees.affiliateFee;
+          const filteredProducts = productList.filter(p => {
+            const term = searchTerm.toLowerCase().trim();
+            if (!term) return true;
+            return String(p.name).toLowerCase().includes(term) || String(p.sku).toLowerCase().includes(term);
+          });
+          const selectedProductData = productList.find(p => p.sku === selectedSku);
+          const productUnit = selectedProductData?.unit ? ` / ${selectedProductData.unit}` : ' / unit';
+          const t1Result = calculateTier(null, 0);
+          const t1IsLoss = t1Result.profit <= 0;
+          
+          // Define Filtered Lists
+          const pendingList = submissions.filter(s => s.status === 'pending' || s.status === 'revision');
+          const completedList = submissions.filter(s => ['completed', 'approved', 'rejected'].includes(s.status));
+
+          // --- EFFECTS ---
+          useEffect(() => {
+            const initFirebase = async () => {
+              try {
+                if (typeof __firebase_config !== 'undefined') {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    const dbRef = getFirestore(app);
+                    const aId = typeof __app_id !== 'undefined' ? __app_id : 'default';
+                    setDb(dbRef); setAppId(aId);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                    else await signInAnonymously(auth);
+                    setIsOnline(true);
+                } else {
+                    setIsOnline(false);
+                }
+              } catch (e) { setIsOnline(false); }
+            };
+            initFirebase();
+          }, []);
+
+          const fetchFeesData = useCallback(async () => {
+              try {
+                const res = await fetch(`${FEES_DB_URL}&t=${Date.now()}`);
+                if (!res.ok) return;
+                const text = await res.text();
+                const parseLine = (str) => {
+                    const arr = []; let q = false, s = 0;
+                    for(let i=0;i<str.length;i++){ if(str[i]==='"')q=!q; else if(str[i]===','&&!q){ arr.push(str.substring(s,i)); s=i+1; } }
+                    arr.push(str.substring(s)); return arr.map(v => v.replace(/^"|"$/g,'').replace(/""/g,'"').trim());
+                };
+                const lines = text.split('\n').filter(l => l.trim());
+                if (lines.length > 1) {
+                    const headers = parseLine(lines[0]);
+                    const values = parseLine(lines[1]);
+                    const newFees = { ...fees };
+                    headers.forEach((h, i) => {
+                        const key = h.trim();
+                        const val = Number(values[i]);
+                        if (!isNaN(val) && Object.prototype.hasOwnProperty.call(newFees, key)) {
+                            newFees[key] = val;
+                        }
+                    });
+                    setFees(newFees);
+                }
+              } catch(e) { console.error('Error fetching fees', e); }
+          }, []);
+
+          const fetchCsvData = useCallback(async () => {
+            setIsLoading(true);
+            try {
+              const res = await fetch(`${PRODUCT_DB_URL}&t=${Date.now()}`);
+              const text = await res.text();
+              const lines = text.split('\n');
+              if (lines.length < 2) return;
+              const parseLine = (str) => {
+                  const arr = []; let q = false, s = 0;
+                  for(let i=0;i<str.length;i++){ if(str[i]==='"')q=!q; else if(str[i]===','&&!q){ arr.push(str.substring(s,i)); s=i+1; } }
+                  arr.push(str.substring(s)); return arr.map(v => v.replace(/^"|"$/g,'').replace(/""/g,'"').trim());
+              };
+              
+              const header = parseLine(lines[0]).map(v=>v.toLowerCase());
+              const idx = { 
+                  name: header.findIndex(h=>h.includes('nama')||h.includes('produk')), 
+                  sku: header.findIndex(h=>h.includes('sku')||h.includes('kode')),
+                  unit: header.findIndex(h=>h.includes('unit')),
+                  hpp: header.findIndex(h=>h.includes('hpp')||h.includes('modal')),
+                  ecer: header.findIndex(h=>h.includes('ecer')||h.includes('retail')),
+                  grosir: header.findIndex(h=>h.includes('grosir')),
+                  partai: header.findIndex(h=>h.includes('partai'))
+              };
+              const products = lines.slice(1).map(l => {
+                  if(!l.trim()) return null;
+                  const r = parseLine(l);
+                  if(r.length < 3) return null;
+                  const num = (v) => { if(!v) return 0; let s=v.replace(/[^0-9.,-]/g,''); if(s.endsWith(',00')||s.endsWith('.00')) s=s.slice(0,-3); return Number(s.replace(/[.,]/g,'')) || 0; };
+                  return {
+                      name: r[idx.name] || 'Produk', sku: r[idx.sku] || '-', unit: r[idx.unit] || 'pcs',
+                      hpp: num(r[idx.hpp]), eceran: num(r[idx.ecer]), grosir: num(r[idx.grosir]), partai: num(r[idx.partai])
+                  };
+              }).filter(p => p && p.name !== 'Produk');
+              setProductList(products);
+
+              // Fetch Category mapping by SKU
+              try {
+                  const resCat = await fetch(`${CATEGORY_DB_URL}&t=${Date.now()}`);
+                  const textCat = await resCat.text();
+                  const linesCat = textCat.split('\n');
+                  if(linesCat.length > 1) {
+                      const headerCat = parseLine(linesCat[0]).map(v => v.toLowerCase().trim());
+                      const idxCatSku = headerCat.findIndex(h => h === 'sku' || h.includes('sku') || h.includes('kode'));
+                      const idxCatType = headerCat.findIndex(h => h === 'type' || h.includes('type') || h.includes('tipe'));
+                      
+                      if(idxCatSku !== -1 && idxCatType !== -1) {
+                          const map = {};
+                          const catSet = new Set();
+                          linesCat.slice(1).forEach(l => {
+                              if(!l.trim()) return;
+                              const r = parseLine(l);
+                              if(r.length > Math.max(idxCatSku, idxCatType)) {
+                                  const skuStr = r[idxCatSku];
+                                  const typeStr = r[idxCatType];
+                                  if(skuStr && typeStr) {
+                                      map[skuStr] = typeStr;
+                                      catSet.add(typeStr);
+                                  }
+                              }
+                          });
+                          setSkuCategoryMap(map);
+                          setCategories(Array.from(catSet).sort());
+                      }
+                  }
+              } catch(errCat) { console.error('Error fetching categories:', errCat); }
+
+            } catch(e) { console.error(e); } finally { setIsLoading(false); }
+          }, []);
+
+          const fetchHistoryData = useCallback(async () => {
+            setIsLoadingHistory(true);
+            try {
+                const res = await fetch(`${APPS_SCRIPT_URL}?action=get&t=${Date.now()}`);
+                if(res.ok) {
+                    const json = await res.json();
+                    if(json.status === 'success' && Array.isArray(json.data)) {
+                        const cleanData = json.data.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(d => ({
+                            ...d, items: Array.isArray(d.items) ? d.items.filter(i => i) : [], revisions: d.revisions || {}
+                        }));
+                        setSubmissions(cleanData);
+                    }
+                }
+            } catch(e){ console.error(e); } finally { setIsLoadingHistory(false); }
+          }, []);
+
+          useEffect(() => { 
+            if(isLoggedIn) { 
+                if(productList.length === 0) fetchCsvData(); 
+                fetchHistoryData(); 
+                fetchFeesData();
+                const interval = setInterval(fetchHistoryData, 60000); 
+                return () => clearInterval(interval); 
+            } 
+          }, [isLoggedIn, fetchCsvData, fetchHistoryData, fetchFeesData]);
+          
+          useEffect(() => { try { localStorage.setItem('marketplace_submissions', JSON.stringify(submissions)); } catch (e) {} }, [submissions]);
+
+          // --- ACTIONS ---
+          const handleProductChange = (e) => { 
+              const { name, value } = e.target; 
+              setProduct({ ...product, [name]: parseInput(value) }); 
+          };
+          
+          const handleSelectProduct = (selectedProd) => { 
+              setSelectedSku(selectedProd.sku); 
+              setProduct({ 
+                  hpp: selectedProd.hpp, 
+                  basePrice: selectedProd.eceran 
+              }); 
+              setShowProductList(false); 
+              setSearchTerm(''); 
+          };
+          
+          const addToCart = () => {
+              if (!selectedSku) return;
+
+              const margin = 10;
+              const currentProcFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const currentPackFee = Number(fees.packingFee) || 0;
+              
+              let finalCustomQty = null;
+              if (showCustomQty && customQty > 1) {
+                  finalCustomQty = customQty;
+              }
+
+              const prices = calculateItemPrices(product.hpp, margin, currentProcFee, currentPackFee, finalCustomQty, rounding);
+
+              setCart([...cart, {
+                  id: Date.now(), addedAt: new Date().toISOString(), sku: selectedSku,
+                  name: selectedProductData?.name || 'Unknown', unit: selectedProductData?.unit || 'unit',
+                  hpp: product.hpp, 
+                  eceran: selectedProductData?.eceran || product.basePrice,
+                  grosir: selectedProductData?.grosir || 0,
+                  partai: selectedProductData?.partai || 0,
+                  margin: margin,
+                  processingFee: currentProcFee,
+                  packingFee: currentPackFee, // Save packing fee to item
+                  sellingPrice: prices.sellingPrice,
+                  priceMin3: prices.priceMin3, 
+                  priceMin6: prices.priceMin6, 
+                  priceMin12: prices.priceMin12, 
+                  priceCustom: prices.priceCustom, 
+                  customQtyValue: finalCustomQty
+              }]);
+          };
+
+          // --- FUNGSI BERSAMA UNTUK BATCH ADD ---
+          const processBatchAdd = (productsArray, onSuccessCallback) => {
+              if (productsArray.length === 0) return;
+
+              const newItems = [];
+              const margin = 10;
+              const currentProcFee = Math.max(1500, Number(fees.processingFee) || 0);
+              const currentPackFee = Number(fees.packingFee) || 0;
+
+              productsArray.forEach((prod, index) => {
+                  if (!cart.some(c => c.sku === prod.sku)) {
+                      let finalCustomQty = null;
+                      if (showCustomQty && customQty > 1) {
+                          finalCustomQty = customQty;
+                      }
+
+                      const prices = calculateItemPrices(prod.hpp, margin, currentProcFee, currentPackFee, finalCustomQty, rounding);
+
+                      newItems.push({
+                          id: Date.now() + index, 
+                          addedAt: new Date().toISOString(), 
+                          sku: prod.sku,
+                          name: prod.name || 'Unknown', 
+                          unit: prod.unit || 'unit',
+                          hpp: prod.hpp, 
+                          eceran: prod.eceran,
+                          grosir: prod.grosir || 0,
+                          partai: prod.partai || 0,
+                          margin: margin,
+                          processingFee: currentProcFee,
+                          packingFee: currentPackFee,
+                          sellingPrice: prices.sellingPrice,
+                          priceMin3: prices.priceMin3, 
+                          priceMin6: prices.priceMin6, 
+                          priceMin12: prices.priceMin12, 
+                          priceCustom: prices.priceCustom, 
+                          customQtyValue: finalCustomQty
+                      });
+                  }
+              });
+
+              if (newItems.length > 0) {
+                  setCart(prev => [...prev, ...newItems]);
+                  showNotif(`${newItems.length} produk berhasil ditambahkan ke daftar simpan.`);
+              } else {
+                  showNotif('Semua produk dari pencarian ini sudah ada di daftar simpan.');
+              }
+              
+              if (onSuccessCallback) onSuccessCallback();
+          };
+
+          // --- FUNGSI UNTUK ADD MULTIPLE PRODUCTS BY BRAND ---
+          const handleBrandSearch = (term) => {
+              setBrandSearchTerm(term);
+              if (!term.trim()) {
+                  setBrandSearchResults([]);
+                  return;
+              }
+              const lowerTerm = term.toLowerCase().trim();
+              const results = productList.filter(p => 
+                  String(p.name).toLowerCase().includes(lowerTerm) || 
+                  String(p.sku).toLowerCase().includes(lowerTerm)
+              );
+              setBrandSearchResults(results);
+          };
+
+          const addBrandToCart = () => {
+              processBatchAdd(brandSearchResults, () => {
+                  setShowAddBrandModal(false);
+                  setBrandSearchTerm('');
+                  setBrandSearchResults([]);
+              });
+          };
+
+          // --- FUNGSI UNTUK ADD MULTIPLE PRODUCTS BY CATEGORY ---
+          const handleCategorySelect = (category) => {
+              setSelectedCategory(category);
+              if (!category) {
+                  setCategorySearchResults([]);
+                  return;
+              }
+              const results = productList.filter(p => skuCategoryMap[p.sku] === category);
+              setCategorySearchResults(results);
+          };
+
+          const addCategoryToCart = () => {
+              processBatchAdd(categorySearchResults, () => {
+                  setShowAddCategoryModal(false);
+                  setSelectedCategory('');
+                  setCategorySearchResults([]);
+              });
+          };
+
+          const updateCartItem = (id, field, value) => {
+              setCart(cart.map(item => {
+                  if (item.id === id) {
+                      const updatedItem = { ...item, [field]: value === '' ? '' : Number(value) };
+                      const m = updatedItem.margin;
+                      const fee = Math.max(1500, updatedItem.processingFee || 0);
+                      const packFee = updatedItem.packingFee || 0;
+                      
+                      const prices = calculateItemPrices(updatedItem.hpp, m, fee, packFee, item.customQtyValue, rounding);
+
+                      return {
+                          ...updatedItem,
+                          processingFee: field === 'processingFee' ? (value === '' ? '' : Number(value)) : updatedItem.processingFee,
+                          packingFee: field === 'packingFee' ? (value === '' ? '' : Number(value)) : updatedItem.packingFee,
+                          sellingPrice: prices.sellingPrice,
+                          priceMin3: prices.priceMin3,
+                          priceMin6: prices.priceMin6,
+                          priceMin12: prices.priceMin12,
+                          priceCustom: prices.priceCustom
+                      };
+                  }
+                  return item;
+              }));
+          };
+          
+          const handleRoundingChange = (newRounding) => {
+              setRounding(newRounding);
+              setCart(prevCart => prevCart.map(item => {
+                  const fee = Math.max(1500, item.processingFee || 0);
+                  const packFee = item.packingFee || 0;
+                  const prices = calculateItemPrices(item.hpp, item.margin, fee, packFee, item.customQtyValue, newRounding);
+                  return {
+                      ...item,
+                      sellingPrice: prices.sellingPrice,
+                      priceMin3: prices.priceMin3,
+                      priceMin6: prices.priceMin6,
+                      priceMin12: prices.priceMin12,
+                      priceCustom: prices.priceCustom
+                  };
+              }));
+          };
+
+          const applyMassUpdate = () => {
+              if (!massMargin && !massFee && massPack === '') return;
+
+              setCart(prevCart => prevCart.map(item => {
+                  const newMargin = massMargin ? Number(massMargin) : item.margin;
+                  const newFee = massFee ? Math.max(1500, Number(massFee)) : item.processingFee;
+                  const newPackFee = massPack !== '' ? Number(massPack) : (item.packingFee || 0);
+                  
+                  const prices = calculateItemPrices(item.hpp, newMargin, newFee, newPackFee, item.customQtyValue, rounding);
+
+                  return {
+                      ...item,
+                      margin: newMargin,
+                      processingFee: newFee,
+                      packingFee: newPackFee,
+                      sellingPrice: prices.sellingPrice,
+                      priceMin3: prices.priceMin3,
+                      priceMin6: prices.priceMin6,
+                      priceMin12: prices.priceMin12,
+                      priceCustom: prices.priceCustom
+                  };
+              }));
+              
+              showNotif('Update massal berhasil diterapkan!');
+              setMassMargin('');
+              setMassFee('');
+              setMassPack('');
+          };
+
+          const handleSaveFees = async () => {
+              setIsSavingFees(true);
+              try {
+                  await fetch(APPS_SCRIPT_URL, {
+                      method: 'POST',
+                      mode: 'no-cors',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          action: 'updateFees',
+                          sheetId: '1HSUiF20wpTJbfYdpOE08gtbRzm1N8IXOrZDs-KGSvnI',
+                          sheetName: 'BiayaMarketplace',
+                          payload: fees
+                      })
+                  });
+                  showNotif('Pengaturan Biaya Berhasil Disimpan!');
+                  setShowSettings(false);
+              } catch(e) {
+                  showNotif('Gagal menyimpan biaya');
+              } finally {
+                  setIsSavingFees(false);
+              }
+          };
+
+          const handleCompFormChange = (e) => { 
+              const { name, value } = e.target; 
+              if (['compAPrice', 'compBPrice'].includes(name)) {
+                  setCompForm({ ...compForm, [name]: parseInput(value) }); 
+              } else {
+                  setCompForm({ ...compForm, [name]: value }); 
+              }
+          };
+          
+          const addToCompetitorCart = () => {
+            if (!selectedSku || !compForm.compAName || !compForm.compAPrice) { showNotif('Isi Nama & Harga Kompetitor A!'); return; }
+            const ownPrice = compForm.ownPrice !== '' ? Number(compForm.ownPrice) : t1Result.sellingPrice;
+            setCompetitorCart([...competitorCart, {
+                id: Date.now(), addedAt: new Date().toISOString(), sku: selectedSku,
+                name: selectedProductData?.name || 'Unknown', ownPrice: ownPrice,
+                compAName: compForm.compAName, compAPrice: Number(compForm.compAPrice), compALink: compForm.compALink,
+                compBName: compForm.compBName || '', compBPrice: compForm.compBPrice ? Number(compForm.compBPrice) : null, compBLink: compForm.compBLink || '',
+                itemStatus: 'pending', isCompetitorData: true,
+                hpp: product.hpp,
+                eceran: selectedProductData?.eceran || 0,
+                grosir: selectedProductData?.grosir || 0,
+                partai: selectedProductData?.partai || 0,
+            }]);
+            setCompForm({ ownPrice: '', compAName: '', compAPrice: '', compALink: '', compBName: '', compBPrice: '', compBLink: '' });
+          };
+          const removeCartItem = (id) => setCart(cart.filter(item => item.id !== id));
+          const removeCompetitorCartItem = (id) => setCompetitorCart(competitorCart.filter(item => item.id !== id));
+
+          const handleEditSubmission = (sub) => {
+              const isCompetitorSub = sub.items?.[0]?.isCompetitorData;
+              if (isCompetitorSub) { setCompetitorCart(sub.items || []); setActiveView('competitor'); }
+              else { setCart(sub.items || []); setActiveView('calculator'); }
+              setSubmissionNote(sub.clientNote || ''); setEditingSubmissionId(sub.id); setExpandedSubmissionId(null);
+          };
+
+          const handleSendSubmission = async (type = 'margin') => {
+              const activeCart = type === 'competitor' ? competitorCart : cart;
+              if (activeCart.length === 0) return;
+              setIsSending(true);
+              const isEditing = !!editingSubmissionId;
+              const subId = isEditing ? editingSubmissionId : Date.now().toString();
+              const payload = {
+                  id: subId, sender: currentUser, timestamp: new Date().toISOString(), status: 'pending', isRead: false,
+                  items: activeCart.map(i => ({...i, itemStatus: 'pending'})), totalItems: activeCart.length,
+                  serverNote: '', revisions: { _clientNote: submissionNote }, clientNote: submissionNote
+              };
+              try {
+                  await fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isEditing ? 'update' : 'add', payload }) });
+                  setSubmissions(prev => {
+                      const exists = prev.find(i => i.id === subId);
+                      if (exists && !isEditing) return prev;
+                      return isEditing ? prev.map(p => p.id === subId ? {...p, ...payload} : p) : [payload, ...prev];
+                  });
+                  if(type === 'competitor') setCompetitorCart([]); else setCart([]);
+                  setSubmissionNote(''); setEditingSubmissionId(null); setActiveView(isServer ? 'inbox' : 'history');
+                  showNotif('Berhasil dikirim!');
+                  setTimeout(fetchHistoryData, 2000);
+              } catch(e){ showNotif('Gagal kirim'); } finally { setIsSending(false); }
+          };
+
+          const handleUpdateStatus = async (id, globalStatus) => {
+            const draft = serverDrafts[id] || { note: '', revisions: {}, checkedItems: {} };
+            const currentSub = submissions.find(s => s.id === id);
+            if (!currentSub) return;
+            let updatedItems = [];
+            if (globalStatus === 'pending' || globalStatus === 'revision') {
+                 updatedItems = (currentSub.items || []).map(item => ({ ...item, itemStatus: globalStatus }));
+            } else {
+                updatedItems = (currentSub.items || []).map(item => ({
+                    ...item, itemStatus: globalStatus === 'reviewed' ? (draft.checkedItems?.[item.sku] ? 'approved' : 'rejected') : globalStatus 
+                }));
+            }
+            const finalStatus = globalStatus === 'reviewed' ? 'completed' : globalStatus;
+            const payload = { id: id, status: finalStatus, handledAt: new Date().toISOString(), serverNote: draft.note, revisions: { ...currentSub.revisions, ...draft.revisions }, items: updatedItems, isRead: true };
+            setSubmissions(prev => prev.map(sub => sub.id === id ? { ...sub, ...payload } : sub));
+            fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'update', payload }) }).catch(e => {});
+            const newDrafts = { ...serverDrafts }; delete newDrafts[id]; setServerDrafts(newDrafts);
+          };
+
+          const handleServerDraftChange = (subId, field, val, sku) => {
+            setServerDrafts(prev => {
+                const d = prev[subId] || { note: '', revisions: {}, checkedItems: {} };
+                if(field === 'note') return { ...prev, [subId]: { ...d, note: val } };
+                if(field === 'revision') return { ...prev, [subId]: { ...d, revisions: { ...d.revisions, [sku]: val } } };
+                if(field === 'check') {
+                    const c = { ...d.checkedItems }; if(c[sku]) delete c[sku]; else c[sku] = true;
+                    return { ...prev, [subId]: { ...d, checkedItems: c } };
+                }
+                return prev;
+            });
+          };
+
+          const handleToggleExpand = (id) => {
+              if (expandedSubmissionId === id) setExpandedSubmissionId(null);
+              else { setExpandedSubmissionId(id); if (isServer) handleMarkAsRead(id); }
+          };
+
+          const handleMarkAsRead = (id) => {
+             const sub = submissions.find(s => s.id === id);
+             if (sub && !sub.isRead) {
+                setSubmissions(prev => prev.map(s => s.id === id ? { ...s, isRead: true } : s));
+                fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'markRead', payload: { id: id } }) }).catch(e => {});
+             }
+          };
+
+          const handleRefreshSubmissions = async () => { setIsRefreshing(true); await fetchHistoryData(); setIsRefreshing(false); };
+          
+          const downloadCSV = (targetData, isComp = false) => {
+              const today = new Date();
+              const dd = String(today.getDate()).padStart(2, '0');
+              const mm = String(today.getMonth() + 1).padStart(2, '0');
+              const yyyy = today.getFullYear();
+              const csvFileName = `Update Harga (${dd}-${mm}-${yyyy}).csv`;
+
+              const escapeCSV = (val) => {
+                  if (val === null || val === undefined) return '""';
+                  const str = String(val);
+                  const noNewlines = str.replace(/[\r\n]+/g, ' ');
+                  return `"${noNewlines.replace(/"/g, '""')}"`;
+              };
+
+              const formatSKU = (sku) => {
+                  if (!sku) return '""';
+                  const cleanSku = String(sku).replace(/[\r\n]+/g, ' ').replace(/"/g, '""');
+                  return `"=""${cleanSku}"""`; 
+              };
+
+              let hdr = [];
+              if (isComp) {
+                  hdr = ["Tgl","SKU","Nama","HPP","Eceran","Grosir","Partai","Harga Kita","KompA","HargaA","LinkA","KompB","HargaB","LinkB"].map(escapeCSV);
+              } else {
+                  const h = ["Tgl","SKU","Nama"];
+                  if (canSeeHPP) h.push("HPP");
+                  h.push("Eceran","Grosir","Partai","Margin","Biaya Layanan","Biaya Packing","Tayang (Sat)","Min 3","Min 6","Min 12","Custom Min","Harga Custom");
+                  hdr = h.map(escapeCSV);
+              }
+              
+              const row = isComp 
+                  ? targetData.map(d=>[
+                      escapeCSV(d.addedAt), 
+                      formatSKU(d.sku), 
+                      escapeCSV(d.name), 
+                      escapeCSV(d.hpp),
+                      escapeCSV(d.eceran),
+                      escapeCSV(d.grosir),
+                      escapeCSV(d.partai),
+                      escapeCSV(d.ownPrice), 
+                      escapeCSV(d.compAName), 
+                      escapeCSV(d.compAPrice), 
+                      escapeCSV(d.compALink),
+                      escapeCSV(d.compBName), 
+                      escapeCSV(d.compBPrice || ''), 
+                      escapeCSV(d.compBLink)
+                    ]) 
+                  : targetData.map(d=>{
+                      const r = [escapeCSV(d.addedAt), formatSKU(d.sku), escapeCSV(d.name)];
+                      if (canSeeHPP) r.push(escapeCSV(d.hpp));
+                      r.push(
+                          escapeCSV(d.eceran),
+                          escapeCSV(d.grosir),
+                          escapeCSV(d.partai),
+                          escapeCSV(`${d.margin || 10}%`), 
+                          escapeCSV(Math.max(1500, d.processingFee || 1500)),
+                          escapeCSV(d.packingFee || 0),
+                          escapeCSV(d.sellingPrice), 
+                          escapeCSV(d.priceMin3), 
+                          escapeCSV(d.priceMin6), 
+                          escapeCSV(d.priceMin12), 
+                          escapeCSV(d.customQtyValue || '-'), 
+                          escapeCSV(d.priceCustom || '-')
+                      );
+                      return r;
+                  });
+
+              const csv = [hdr.join(','), ...row.map(r=>r.join(','))].join('\n');
+              const blob = new Blob(["\uFEFF" + csv], {type:'text/csv;charset=utf-8;'}); 
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = csvFileName; a.click();
+          };
+
+          const downloadJubelioCSV = (targetData) => {
+              const today = new Date();
+              const dd = String(today.getDate()).padStart(2, '0');
+              const mm = String(today.getMonth() + 1).padStart(2, '0');
+              const yyyy = today.getFullYear();
+              const csvFileName = `Jubelio_Update_Harga_${dd}-${mm}-${yyyy}.csv`;
+
+              const toRawCSV = (val) => {
+                  if (val === null || val === undefined) return '';
+                  const str = String(val).replace(/[\r\n]+/g, ' ');
+                  if (str.includes(',') || str.includes('"')) {
+                      return `"${str.replace(/"/g, '""')}"`;
+                  }
+                  return str;
+              };
+
+              const hdr = [
+                  "item_code",
+                  "Shopee-Bali Stationery",
+                  "Shopee-Go Mall",
+                  "Shop | Tokopedia-balistationery",
+                  "Shop | Tokopedia-gomall.id",
+                  "default"
+              ].map(toRawCSV);
+              
+              const row = targetData.map(d => {
+                  const price = toRawCSV(d.sellingPrice);
+                  const sku = toRawCSV(d.sku);
+                  return [
+                      sku,
+                      price,
+                      price,
+                      price,
+                      price,
+                      price
+                  ];
+              });
+
+              const csv = [hdr.join(','), ...row.map(r=>r.join(','))].join('\n');
+              // Tidak memakai BOM \uFEFF agar lebih sesuai dengan raw parser standard
+              const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); 
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = csvFileName; a.click();
+          };
+          
+          const downloadHistoryDB = (data) => {
+              const blob = new Blob([JSON.stringify(data)], {type:'application/json'}); const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'db.json'; a.click();
+          };
+
+          const handleLogin = async (e) => {
+            e.preventDefault();
+            const user = loginForm.username.toLowerCase();
+            const pass = loginForm.password;
+            if (['server', 'bobby', 'admin', 'stefany', 'isa', 'winda'].includes(user) && pass === '0000') {
+                setIsLoggedIn(true); 
+                setCurrentUser(user); 
+                setActiveView('calculator'); 
+                await fetchHistoryData(); 
+                if(productList.length === 0) fetchCsvData();
+            } else {
+                setLoginError('Login Gagal');
+            }
+          };
+
+          // --- RENDER GROUPED LIST (PAGINATION & FILTER) ---
+          const filteredPending = pendingList.filter(item => {
+                if (pendingFilter === 'all') return true;
+                return item.status === pendingFilter;
+          });
+
+          const filteredCompleted = completedList.filter(item => {
+                if (completedFilter === 'all') return true;
+                if (completedFilter === 'approved') return ['completed', 'approved'].includes(item.status);
+                if (completedFilter === 'rejected') return item.status === 'rejected';
+                return true;
+          });
+
+          const totalPendingPages = Math.ceil(filteredPending.length / ITEMS_PER_PAGE);
+          const paginatedPending = filteredPending.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
+
+          const totalCompletedPages = Math.ceil(filteredCompleted.length / ITEMS_PER_PAGE);
+          const paginatedCompleted = filteredCompleted.slice((completedPage - 1) * ITEMS_PER_PAGE, completedPage * ITEMS_PER_PAGE);
+
+          const groupBySender = (list) => {
+              return list.reduce((acc, item) => {
+                const sender = (item.sender || 'Unknown').toLowerCase();
+                if (!acc[sender]) acc[sender] = [];
+                acc[sender].push(item);
+                return acc;
+              }, {});
+          };
+
+          const groupedPending = groupBySender(paginatedPending);
+          const pendingSenders = Object.keys(groupedPending).sort();
+          const groupedCompleted = groupBySender(paginatedCompleted);
+          const completedSenders = Object.keys(groupedCompleted).sort();
+
+          // --- MAIN RENDER ---
+          if (!isLoggedIn) {
+            return (
+                <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans text-slate-800">
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+                        <div className="bg-blue-600 p-8 text-center"><div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4"><Lock className="w-8 h-8 text-white"/></div><h1 className="text-2xl font-bold text-white">MarpApps - Marketplace Pricing</h1></div>
+                        <form onSubmit={handleLogin} className="p-8 space-y-6">{loginError && <div className="p-3 bg-red-50 text-red-600 text-sm rounded flex items-center"><AlertCircle className="w-4 h-4 mr-2"/>{loginError}</div>}<input type="text" className="w-full p-3 border rounded-lg" placeholder="Username" value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username: e.target.value})} /><input type="password" className="w-full p-3 border rounded-lg" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password: e.target.value})} /><button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700">{isLoadingHistory ? 'Memuat...' : 'Masuk Dashboard'}</button></form>
+                    </div>
+                </div>
+            );
+          }
+
+          return (
+            <div className="min-h-screen bg-slate-50 p-4 font-sans text-slate-800 relative">
+              {notification && (
+                  <div className="fixed top-4 right-4 z-[200] bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-top-5">
+                      {notification}
+                  </div>
+              )}
+              <datalist id="competitors-list"><option value="karya mandiri" /><option value="nadhimart" /></datalist>
+              
+              {/* SETTINGS MODAL */}
+              {showSettings && (
+                  <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
+                      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+                          <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                              <h3 className="font-bold text-slate-800 flex items-center"><Settings className="w-5 h-5 mr-2 text-slate-600"/> Pengaturan Biaya Marketplace</h3>
+                              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5"/></button>
+                          </div>
+                          <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Admin Fee (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.adminFee} onChange={e => setFees({...fees, adminFee: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Gratis Ongkir Xtra (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.gratisOngkirXtra} onChange={e => setFees({...fees, gratisOngkirXtra: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Layanan Xtra (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.layananXtra} onChange={e => setFees({...fees, layananXtra: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Asuransi (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.insurance} onChange={e => setFees({...fees, insurance: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Affiliate Fee (%)</label>
+                                      <input type="number" step="0.1" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.affiliateFee} onChange={e => setFees({...fees, affiliateFee: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Biaya Layanan (Rp)</label>
+                                      <input type="number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.processingFee} onChange={e => setFees({...fees, processingFee: Number(e.target.value)})} />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Biaya Packing (Rp)</label>
+                                      <input type="number" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" value={fees.packingFee} onChange={e => setFees({...fees, packingFee: Number(e.target.value)})} />
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                              <button onClick={() => setShowSettings(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-lg">Batal</button>
+                              <button onClick={handleSaveFees} disabled={isSavingFees} className="px-4 py-2 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center">
+                                  {isSavingFees ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1"/>} 
+                                  Simpan ke Database
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              <div className="max-w-7xl mx-auto space-y-6">
+                 <header className="flex flex-col md:flex-row justify-between items-center pb-4 border-b border-slate-200 gap-4">
+                     <div className="flex items-center space-x-3"><div className="bg-blue-600 p-2 rounded-lg"><Calculator className="text-white w-6 h-6" /></div><div><h1 className="text-xl font-bold">MarpApps Pricing</h1><div className="text-xs text-slate-500 capitalize">User: {currentUser} | {isOnline ? 'Online' : 'Offline'}</div></div></div>
+                     <div className="flex gap-2">
+                        <button onClick={() => setActiveView('calculator')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'calculator' ? 'bg-white shadow' : ''}`}>Kalkulator</button>
+                        <button onClick={() => setActiveView('competitor')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'competitor' ? 'bg-white shadow' : ''}`}>Kompetitor</button>
+                        <button onClick={() => setActiveView(isServer ? 'inbox' : 'history')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'inbox' || activeView === 'history' ? 'bg-white shadow' : ''} flex items-center`}>{isServer ? 'Inbox' : 'Riwayat'} {pendingList.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 rounded-full">{pendingList.length}</span>}</button>
+                        {isAdmin && <button onClick={() => setShowSettings(true)} className="px-3 text-slate-500 hover:text-slate-800" title="Pengaturan Biaya"><Settings className="w-4 h-4"/></button>}
+                        <button onClick={() => { setIsLoggedIn(false); setCurrentUser(null); localStorage.removeItem('marketplace_submissions'); }} className="text-red-500 text-xs font-bold px-3"><LogOut className="w-4 h-4"/></button>
+                     </div>
+                 </header>
+
+                 {/* MODAL ADD BY BRAND */}
+                 {showAddBrandModal && (
+                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+                             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                                 <h3 className="font-bold text-slate-800 flex items-center"><Search className="w-5 h-5 mr-2 text-blue-600"/> Tambah Banyak (By Merk/Kata Kunci)</h3>
+                                 <button onClick={() => {setShowAddBrandModal(false); setBrandSearchTerm(''); setBrandSearchResults([]);}} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5"/></button>
+                             </div>
+                             <div className="p-5 space-y-4">
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-700 mb-1">Cari Merk / Kata Kunci Produk</label>
+                                     <input 
+                                         type="text" 
+                                         autoFocus
+                                         className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                         placeholder="Contoh: 'Tepung', 'Bimoli', 'Indomie'..." 
+                                         value={brandSearchTerm}
+                                         onChange={(e) => handleBrandSearch(e.target.value)}
+                                     />
+                                 </div>
+                                 
+                                 <div className="border rounded-lg bg-slate-50 p-2 max-h-48 overflow-y-auto">
+                                     {brandSearchTerm.trim() === '' ? (
+                                         <div className="text-xs text-center text-slate-400 py-4">Ketik kata kunci untuk mencari produk</div>
+                                     ) : brandSearchResults.length === 0 ? (
+                                         <div className="text-xs text-center text-slate-500 py-4">Tidak ada produk yang cocok dengan "{brandSearchTerm}"</div>
+                                     ) : (
+                                         <div className="space-y-1">
+                                             <div className="text-[10px] font-bold text-blue-600 mb-2 px-1 border-b border-blue-100 pb-1">Ditemukan {brandSearchResults.length} produk:</div>
+                                             {brandSearchResults.slice(0, 100).map((p, i) => (
+                                                 <div key={i} className="text-[10px] p-1.5 bg-white border border-slate-100 rounded truncate flex justify-between items-center">
+                                                     <span className="truncate pr-2">{p.name}</span>
+                                                     <span className="text-slate-400 font-mono flex-shrink-0">{p.sku}</span>
+                                                  </div>
+                                             ))}
+                                             {brandSearchResults.length > 100 && (
+                                                 <div className="text-[10px] text-center text-slate-400 pt-1 italic">...dan {brandSearchResults.length - 100} produk lainnya</div>
+                                             )}
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                                 <button onClick={() => setShowAddBrandModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Batal</button>
+                                 <button 
+                                     onClick={addBrandToCart} 
+                                     disabled={brandSearchResults.length === 0}
+                                     className="px-4 py-2 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center shadow-sm"
+                                 >
+                                     <Plus className="w-4 h-4 mr-1"/> Tambahkan Semua ({brandSearchResults.length}) ke Daftar
+                                 </button>
+                             </div>
+                         </div>
+                     </div>
+                 )}
+
+                 {/* MODAL ADD BY CATEGORY */}
+                 {showAddCategoryModal && (
+                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+                             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                                 <h3 className="font-bold text-slate-800 flex items-center"><Tag className="w-5 h-5 mr-2 text-purple-600"/> Tambah Banyak (By Kategori/Type)</h3>
+                                 <button onClick={() => {setShowAddCategoryModal(false); setSelectedCategory(''); setCategorySearchResults([]);}} className="text-slate-400 hover:text-slate-600 p-1"><X className="w-5 h-5"/></button>
+                             </div>
+                             <div className="p-5 space-y-4">
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Kategori Produk</label>
+                                     <select 
+                                         className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white cursor-pointer"
+                                         value={selectedCategory}
+                                         onChange={(e) => handleCategorySelect(e.target.value)}
+                                     >
+                                         <option value="">-- Pilih Kategori --</option>
+                                         {categories.map((cat, i) => (
+                                             <option key={i} value={cat}>{cat}</option>
+                                         ))}
+                                     </select>
+                                 </div>
+                                 
+                                 <div className="border rounded-lg bg-slate-50 p-2 max-h-48 overflow-y-auto">
+                                     {selectedCategory === '' ? (
+                                         <div className="text-xs text-center text-slate-400 py-4">Silakan pilih kategori di atas</div>
+                                     ) : categorySearchResults.length === 0 ? (
+                                         <div className="text-xs text-center text-slate-500 py-4">Tidak ada produk dalam kategori "{selectedCategory}"</div>
+                                     ) : (
+                                         <div className="space-y-1">
+                                             <div className="text-[10px] font-bold text-purple-600 mb-2 px-1 border-b border-purple-100 pb-1">Ditemukan {categorySearchResults.length} produk di {selectedCategory}:</div>
+                                             {categorySearchResults.slice(0, 100).map((p, i) => (
+                                                 <div key={i} className="text-[10px] p-1.5 bg-white border border-slate-100 rounded truncate flex justify-between items-center">
+                                                     <span className="truncate pr-2">{p.name}</span>
+                                                     <span className="text-slate-400 font-mono flex-shrink-0">{p.sku}</span>
+                                                 </div>
+                                             ))}
+                                             {categorySearchResults.length > 100 && (
+                                                 <div className="text-[10px] text-center text-slate-400 pt-1 italic">...dan {categorySearchResults.length - 100} produk lainnya</div>
+                                             )}
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+                                 <button onClick={() => setShowAddCategoryModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Batal</button>
+                                 <button 
+                                     onClick={addCategoryToCart} 
+                                     disabled={categorySearchResults.length === 0}
+                                     className="px-4 py-2 text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 flex items-center shadow-sm"
+                                 >
+                                     <Plus className="w-4 h-4 mr-1"/> Tambahkan Semua ({categorySearchResults.length})
+                                 </button>
+                             </div>
+                         </div>
+                     </div>
+                 )}
+
+                 {activeView === 'calculator' && (
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                         <div className="lg:col-span-1 space-y-6">
+                             <Card className="p-5">
+                                 <div className="flex justify-between mb-4">
+                                     <h3 className="font-bold flex items-center"><Database className="w-4 h-4 mr-2"/> Produk</h3>
+                                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                         <button 
+                                             onClick={() => setShowAddCategoryModal(true)}
+                                             className="text-[10px] font-bold bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1 rounded flex items-center transition-colors border border-purple-200"
+                                             title="Tambah banyak produk berdasarkan Kategori/Type"
+                                         >
+                                             <Tag className="w-3 h-3 mr-0.5"/> Add Cat
+                                         </button>
+                                         <button 
+                                             onClick={() => setShowAddBrandModal(true)}
+                                             className="text-[10px] font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 px-2 py-1 rounded flex items-center transition-colors border border-blue-200"
+                                             title="Tambah banyak produk sekaligus berdasarkan Merk/Kata Kunci"
+                                         >
+                                             <Plus className="w-3 h-3 mr-0.5"/> Add Brand
+                                         </button>
+                                         <RefreshCw className={`w-4 h-4 ml-1 cursor-pointer text-slate-400 hover:text-slate-600 ${isLoading?'animate-spin':''}`} onClick={fetchCsvData}/>
+                                     </div>
+                                 </div>
+                                 <div className="relative mb-4">
+                                     <div className="p-2 border rounded cursor-pointer flex justify-between items-center bg-white hover:border-blue-400 transition-colors" onClick={() => { if (showProductList) setMultiSelectedSkus([]); setShowProductList(!showProductList); }}>
+                                         <span className="truncate text-sm font-medium">{selectedSku ? `${selectedSku} - ${selectedProductData?.name}` : 'Pilih Produk...'}</span>
+                                         <ChevronDown className="w-4 h-4 text-slate-400"/>
+                                     </div>
+                                     {showProductList && (
+                                         <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-xl max-h-[400px] overflow-y-auto mt-1 flex flex-col">
+                                             <div className="p-3 sticky top-0 bg-slate-50 border-b shadow-sm z-10 flex flex-col gap-2">
+                                                 <div className="relative">
+                                                     <Search className="w-4 h-4 absolute left-2 top-2.5 text-slate-400" />
+                                                     <input autoFocus type="text" className="w-full p-2 pl-8 border border-slate-300 rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Cari SKU atau Nama Produk..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                                 </div>
+                                                 
+                                                 {multiSelectedSkus.length > 0 && (
+                                                     <button 
+                                                         onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             const toAdd = productList.filter(p => multiSelectedSkus.includes(p.sku));
+                                                             processBatchAdd(toAdd, () => {
+                                                                 setMultiSelectedSkus([]);
+                                                                 setShowProductList(false);
+                                                                 setSearchTerm('');
+                                                             });
+                                                         }}
+                                                         className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded flex justify-center items-center hover:bg-green-700 shadow-sm"
+                                                     >
+                                                         <Plus className="w-4 h-4 mr-1"/> Tambahkan {multiSelectedSkus.length} Produk Terpilih
+                                                     </button>
+                                                 )}
+                                             </div>
+                                             <div>
+                                                 {filteredProducts.slice(0, 50).map((p, i) => (
+                                                     <div key={i} className="p-3 text-xs hover:bg-blue-50 border-b last:border-0 border-slate-100 transition-colors flex items-center gap-3">
+                                                         <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                             <input 
+                                                                 type="checkbox" 
+                                                                 className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                                 checked={multiSelectedSkus.includes(p.sku)}
+                                                                 onChange={(e) => {
+                                                                     setMultiSelectedSkus(prev => prev.includes(p.sku) ? prev.filter(s => s !== p.sku) : [...prev, p.sku]);
+                                                                 }}
+                                                             />
+                                                         </div>
+                                                         <div className="flex-1 cursor-pointer" onClick={() => handleSelectProduct(p)}>
+                                                             <div className="font-bold text-slate-800">{p.name}</div>
+                                                             <div className="text-slate-500 flex justify-between mt-1">
+                                                                 <span>{p.sku}</span>
+                                                                 <span className="font-medium text-blue-600">Ecer: {formatIDR(p.eceran)}</span>
+                                                             </div>
+                                                         </div>
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+
+                                 {/* INFO HARGA REFERENSI */}
+                                 {selectedSku && selectedProductData && (
+                                     <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1.5">
+                                         <div className="font-semibold text-slate-700 mb-2 border-b pb-1">Harga di sistem AIO:</div>
+                                         <div className="flex justify-between"><span className="text-slate-500">Eceran:</span> <span className="font-medium text-blue-600">{formatIDR(selectedProductData.eceran)}<span className="font-normal text-[10px] text-blue-400">{productUnit}</span></span></div>
+                                         <div className="flex justify-between"><span className="text-slate-500">Grosir:</span> <span className="font-medium text-orange-600">{formatIDR(selectedProductData.grosir)}<span className="font-normal text-[10px] text-orange-400">{productUnit}</span></span></div>
+                                         <div className="flex justify-between"><span className="text-slate-500">Partai:</span> <span className="font-medium text-purple-600">{formatIDR(selectedProductData.partai)}<span className="font-normal text-[10px] text-purple-400">{productUnit}</span></span></div>
+                                         {canSeeHPP && (
+                                             <div className="flex justify-between"><span className="text-slate-500">HPP Asli:</span> <span className="font-medium text-slate-700">{formatIDR(selectedProductData.hpp)}<span className="font-normal text-[10px] text-slate-500">{productUnit}</span></span></div>
+                                         )}
+                                     </div>
+                                 )}
+
+                                 <div className="space-y-3 pt-3 border-t">
+                                     {canSeeHPP && (
+                                         <div>
+                                             <label className="text-xs font-bold block mb-1 text-slate-700">HPP / Modal (Bisa Diedit)</label>
+                                             <div className="relative">
+                                                 <span className="absolute left-3 top-2.5 text-slate-500 text-sm font-bold">Rp</span>
+                                                 <input 
+                                                     type="text" 
+                                                     name="hpp"
+                                                     inputMode="numeric"
+                                                     className="w-full p-2 pl-8 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-slate-800" 
+                                                     value={formatInput(product.hpp)} 
+                                                     onChange={handleProductChange} 
+                                                 />
+                                             </div>
+                                             <p className="text-[9px] text-slate-400 mt-1 italic">*Edit angka ini untuk mengubah perhitungan sementara (tidak mengubah data spreadsheet asli).</p>
+                                         </div>
+                                     )}
+                                     <div className="grid grid-cols-2 gap-3">
+                                         <div>
+                                             <label className="text-[10px] font-bold block mb-1 text-slate-700">Layanan (Min. 1500)</label>
+                                             <div className="relative">
+                                                 <span className="absolute left-2 top-2 text-slate-500 text-xs">Rp</span>
+                                                 <input 
+                                                     type="number" 
+                                                     min="1500"
+                                                     className="w-full p-1.5 pl-7 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                     value={fees.processingFee} 
+                                                     onChange={e => setFees({...fees, processingFee: e.target.value})} 
+                                                     onBlur={e => setFees({...fees, processingFee: Math.max(1500, Number(e.target.value) || 1500)})}
+                                                 />
+                                             </div>
+                                         </div>
+                                         <div>
+                                             <label className="text-[10px] font-bold block mb-1 text-slate-700">Packing</label>
+                                             <div className="relative">
+                                                 <span className="absolute left-2 top-2 text-slate-500 text-xs">Rp</span>
+                                                 <input 
+                                                     type="number" 
+                                                     className="w-full p-1.5 pl-7 border rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                     value={fees.packingFee} 
+                                                     onChange={e => setFees({...fees, packingFee: e.target.value})} 
+                                                     onBlur={e => setFees({...fees, packingFee: Number(e.target.value) || 0})}
+                                                 />
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
+
+                             </Card>
+                         </div>
+                         
+                         {/* HASIL & DAFTAR SIMPAN */}
+                         <div className="lg:col-span-2 space-y-6">
+                             <Card className="overflow-hidden border-t-4 border-t-blue-500">
+                                 <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+                                     <h3 className="font-bold text-lg flex items-center"><Calculator className="w-5 h-5 mr-2 text-blue-600"/> Hasil</h3>
+                                     <button onClick={addToCart} disabled={!selectedSku} className={`bg-blue-600 text-white text-xs font-bold py-2 px-4 rounded hover:bg-blue-700 ${!selectedSku ? 'opacity-50':''}`}>+ Add List</button>
+                                 </div>
+                                 <div className="p-5 space-y-3">
+                                     <div className="flex justify-between">
+                                         <span className="font-bold text-slate-700">SATUAN (Tier 1)</span>
+                                         <span className="text-[10px] bg-blue-100 text-blue-700 px-2 rounded">UTAMA</span>
+                                     </div>
+                                     <div className="grid grid-cols-1 gap-2 text-sm">
+                                         <div className="p-2 bg-slate-50 rounded border">
+                                             <div className="text-[10px] text-slate-500">Tayang (Satuan)</div>
+                                             <div className="font-bold text-slate-800 flex items-center group cursor-pointer w-fit" onClick={(e) => handleCopyPrice(t1Result.sellingPrice, e)} title="Klik untuk copy harga">
+                                                 {formatIDR(t1Result.sellingPrice)}
+                                                 <span className="text-[10px] font-normal ml-1 text-slate-500 mr-2">{productUnit}</span>
+                                                 <Copy className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                             </div>
+                                         </div>
+                                     </div>
+                                     <div className="mt-3">
+                                         <div className="text-[10px] font-bold text-slate-500 mb-1">Saran Harga Tayang (Satuan):</div>
+                                         <div className="grid grid-cols-3 gap-2">
+                                             {[10, 15, 20].map(m => {
+                                                 const price = calculateRecommendation(m, 1);
+                                                 return (
+                                                     <div key={m} onClick={(e) => { setProduct(p => ({...p, basePrice: price})); handleCopyPrice(price, e); }} className="cursor-pointer p-2 border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors text-center shadow-sm group">
+                                                         <div className="text-[10px] text-blue-800 font-bold mb-0.5">Margin {m}%</div>
+                                                         <div className="text-xs font-bold text-blue-900 flex justify-center items-center gap-1">
+                                                            {formatIDR(price)}
+                                                            <Copy className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             })}
+                                         </div>
+                                         <div className="text-[9px] text-slate-400 mt-1 italic">*Klik kotak untuk memakai harga atau copy. Rumus: ((HPP * 123%) * (100% + Margin)) + Layanan + Packing</div>
+                                     </div>
+
+                                     {/* TAMBAHAN TAMPILAN GROSIR / PAKET */}
+                                     <div className="mt-6 pt-4 border-t border-slate-200">
+                                         <div className="flex justify-between items-center mb-3">
+                                             <span className="font-bold text-slate-700">GROSIR / PAKET</span>
+                                             <span className="text-[10px] bg-green-100 text-green-700 px-2 rounded">SARAN HARGA / PCS</span>
+                                         </div>
+                                         <div className="space-y-3">
+                                             {[3, 6, 12].map(qty => (
+                                                 <div key={qty} className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                                     <div className="text-xs font-bold text-slate-700 mb-2">Min. Pembelian {qty}</div>
+                                                     <div className="grid grid-cols-3 gap-2">
+                                                         {[10, 15, 20].map(m => {
+                                                             const price = calculateRecommendation(m, qty);
+                                                             return (
+                                                                 <div key={m} onClick={(e) => handleCopyPrice(price, e)} className="cursor-pointer p-2 border border-green-200 rounded-lg bg-green-50 hover:bg-green-100 transition-colors text-center shadow-sm group">
+                                                                     <div className="text-[10px] text-green-800 font-bold mb-0.5">Margin {m}%</div>
+                                                                     <div className="text-xs font-bold text-green-900 flex justify-center items-center gap-1">
+                                                                        {formatIDR(price)}
+                                                                        <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                     </div>
+                                                                 </div>
+                                                             );
+                                                         })}
+                                                     </div>
+                                                 </div>
+                                             ))}
+                                             
+                                             {/* Custom Qty */}
+                                             {!showCustomQty ? (
+                                                 <button 
+                                                     onClick={() => setShowCustomQty(true)}
+                                                     className="w-full mt-2 py-2.5 border border-dashed border-slate-300 text-slate-500 rounded-lg hover:bg-slate-50 hover:text-green-600 hover:border-green-300 transition-colors flex items-center justify-center text-xs font-bold"
+                                                 >
+                                                     <Plus className="w-4 h-4 mr-1"/> Tambahkan Custom Min Pembelian
+                                                 </button>
+                                             ) : (
+                                                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg relative mt-2 animate-in fade-in slide-in-from-top-1">
+                                                     <button 
+                                                         onClick={() => setShowCustomQty(false)}
+                                                         className="absolute -top-2 -right-2 text-slate-400 hover:text-red-500 bg-white border border-slate-200 rounded-full shadow-sm p-0.5"
+                                                     >
+                                                         <X className="w-3.5 h-3.5"/>
+                                                     </button>
+                                                     <div className="flex items-center gap-2 mb-2">
+                                                         <span className="text-xs font-bold text-slate-700">Custom Min:</span>
+                                                         <input type="number" min="2" className="w-16 p-1 text-xs border rounded text-center focus:outline-none focus:ring-1 focus:ring-green-500 font-bold" value={customQty} onChange={e => setCustomQty(Number(e.target.value) || 1)} />
+                                                     </div>
+                                                     {customQty > 0 && (
+                                                         <div className="grid grid-cols-3 gap-2">
+                                                             {[10, 15, 20].map(m => {
+                                                                 const price = calculateRecommendation(m, customQty);
+                                                                 return (
+                                                                     <div key={m} onClick={(e) => handleCopyPrice(price, e)} className="cursor-pointer p-2 border border-green-200 rounded-lg bg-green-50 text-center shadow-sm group">
+                                                                         <div className="text-[10px] text-green-800 font-bold mb-0.5">Margin {m}%</div>
+                                                                         <div className="text-xs font-bold text-green-900 flex justify-center items-center gap-1">
+                                                                            {formatIDR(price)}
+                                                                            <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                         </div>
+                                                                     </div>
+                                                                 );
+                                                             })}
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             )}
+                                         </div>
+                                         <div className="text-[9px] text-slate-400 mt-2 italic">*Klik harga untuk meng-copy angkanya.</div>
+                                     </div>
+                                 </div>
+                             </Card>
+                             
+                             <Card className="p-0 overflow-hidden">
+                                 <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
+                                     <h4 className="font-bold text-sm flex items-center"><ShoppingCart className="w-4 h-4 mr-2"/> Daftar Simpan ({cart.length})</h4>
+                                     <div className="flex gap-2 items-center">
+                                         {cart.length > 0 && (
+                                             confirmClear ? (
+                                                 <div className="flex items-center gap-1 mr-2">
+                                                     <span className="text-[10px] text-red-600 font-bold mr-1">Hapus Semua?</span>
+                                                     <button onClick={() => { setCart([]); setConfirmClear(false); }} className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded hover:bg-red-700">Ya</button>
+                                                     <button onClick={() => setConfirmClear(false)} className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded hover:bg-slate-300">Batal</button>
+                                                 </div>
+                                             ) : (
+                                                 <button onClick={() => setConfirmClear(true)} className="bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold px-3 py-1.5 rounded hover:bg-red-100 transition-colors flex items-center"><Trash2 className="w-3 h-3 mr-1"/> Clear</button>
+                                             )
+                                         )}
+                                         {cart.length > 0 && isAdmin && <button onClick={() => handleSendSubmission('margin')} disabled={isSending} className="bg-orange-600 text-white text-[10px] font-bold px-3 py-1.5 rounded hover:bg-orange-700">{isSending ? '...' : editingSubmissionId ? 'Kirim Revisi' : 'Kirim Pengajuan'}</button>}
+                                         {cart.length > 0 && <button onClick={() => downloadCSV(cart)} className="bg-green-600 text-white text-[10px] font-bold px-3 py-1.5 rounded hover:bg-green-700">CSV</button>}
+                                         {cart.length > 0 && <button onClick={() => downloadJubelioCSV(cart)} className="bg-purple-600 text-white text-[10px] font-bold px-3 py-1.5 rounded hover:bg-purple-700">Jubelio CSV</button>}
+                                     </div>
+                                 </div>
+
+                                 {/* KONTROL MASSAL & PEMBULATAN */}
+                                 {cart.length > 0 && (
+                                     <div className="p-3 bg-blue-50/40 border-b flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
+                                         <div>
+                                             <label className="text-[10px] font-bold text-slate-600 block mb-1">Pembulatan (Ke Atas)</label>
+                                             <select 
+                                                 className="text-xs p-1.5 border rounded border-slate-300 bg-white" 
+                                                 value={rounding} 
+                                                 onChange={(e) => handleRoundingChange(e.target.value)}
+                                             >
+                                                 <option value="none">Sesuai Rumus</option>
+                                                 <option value="100">Ke Rp 100 terdekat</option>
+                                                 <option value="500">Ke Rp 500 terdekat</option>
+                                                 <option value="1000">Ke Rp 1.000 terdekat</option>
+                                             </select>
+                                         </div>
+                                         <div className="flex flex-wrap gap-2 items-end sm:border-l sm:border-slate-300 sm:pl-4">
+                                             <div>
+                                                 <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Margin Massal (%)</label>
+                                                 <select 
+                                                     className="text-xs p-1.5 border rounded border-slate-300 w-full sm:w-28 bg-white"
+                                                     value={massMargin}
+                                                     onChange={(e) => setMassMargin(e.target.value)}
+                                                 >
+                                                     <option value="">-- Biarkan --</option>
+                                                     <option value="10">10%</option>
+                                                     <option value="15">15%</option>
+                                                     <option value="20">20%</option>
+                                                 </select>
+                                             </div>
+                                             <div>
+                                                 <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Layanan Massal</label>
+                                                 <input 
+                                                     type="number" 
+                                                     min="1500" 
+                                                     placeholder="Min. 1500"
+                                                     className="text-xs p-1.5 border rounded border-slate-300 w-full sm:w-24 bg-white"
+                                                     value={massFee}
+                                                     onChange={(e) => setMassFee(e.target.value)}
+                                                 />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Packing Massal</label>
+                                                 <input 
+                                                     type="number" 
+                                                     placeholder="Misal: 350"
+                                                     className="text-xs p-1.5 border rounded border-slate-300 w-full sm:w-24 bg-white"
+                                                     value={massPack}
+                                                     onChange={(e) => setMassPack(e.target.value)}
+                                                 />
+                                             </div>
+                                             <button 
+                                                 onClick={applyMassUpdate}
+                                                 disabled={!massMargin && !massFee && massPack === ''}
+                                                 className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                                             >
+                                                 Terapkan
+                                             </button>
+                                         </div>
+                                     </div>
+                                 )}
+
+                                 <div className="overflow-x-auto pb-4">
+                                     <table className="w-full text-xs text-left whitespace-nowrap">
+                                         <thead className="bg-slate-100 font-bold text-slate-600">
+                                             <tr>
+                                                 <th className="p-2">Produk</th>
+                                                 {canSeeHPP && <th className="p-2 text-center bg-red-50 text-red-700">HPP (Edit)</th>}
+                                                 <th className="p-2 text-right">Eceran</th>
+                                                 <th className="p-2 text-right">Grosir</th>
+                                                 <th className="p-2 text-right">Partai</th>
+                                                 <th className="p-2 text-center bg-blue-50/50">Margin</th>
+                                                 <th className="p-2 text-center bg-blue-50/50">Layanan</th>
+                                                 <th className="p-2 text-center bg-blue-50/50">Packing</th>
+                                                 <th className="p-2 text-right bg-blue-50">Tayang (Sat)</th>
+                                                 <th className="p-2 text-right bg-green-50">Min 3</th>
+                                                 <th className="p-2 text-right bg-green-50">Min 6</th>
+                                                 <th className="p-2 text-right bg-green-50">Min 12</th>
+                                                 <th className="p-2 text-right bg-green-50">Custom</th>
+                                                 <th className="p-2 text-center sticky right-0 bg-slate-100 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">Aksi</th>
+                                             </tr>
+                                         </thead>
+                                         <tbody className="divide-y">
+                                             {cart.map(c => (
+                                                 <tr key={c.id}>
+                                                     <td className="p-2">{c.sku}<br/><span className="text-[10px] text-slate-400 block w-40 whitespace-normal">{c.name}</span></td>
+                                                     {canSeeHPP && (
+                                                         <td className="p-2 text-center bg-red-50/30">
+                                                             <input
+                                                                 type="text"
+                                                                 inputMode="numeric"
+                                                                 value={formatInput(c.hpp)}
+                                                                 onChange={(e) => updateCartItem(c.id, 'hpp', parseInput(e.target.value))}
+                                                                 className="w-20 p-1 text-xs border border-red-200 rounded font-bold text-red-700 bg-white focus:outline-none focus:ring-1 focus:ring-red-500 text-right"
+                                                             />
+                                                         </td>
+                                                     )}
+                                                     <td className="p-2 text-right text-slate-600">{formatIDR(c.eceran)}</td>
+                                                     <td className="p-2 text-right text-slate-600">{formatIDR(c.grosir)}</td>
+                                                     <td className="p-2 text-right text-slate-600">{formatIDR(c.partai)}</td>
+                                                     <td className="p-2 text-center bg-blue-50/30">
+                                                         <select
+                                                             value={c.margin || 10}
+                                                             onChange={(e) => updateCartItem(c.id, 'margin', e.target.value)}
+                                                             className="p-1 text-xs border border-blue-200 rounded font-bold text-blue-700 bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                                                         >
+                                                             <option value={10}>10%</option>
+                                                             <option value={15}>15%</option>
+                                                             <option value={20}>20%</option>
+                                                         </select>
+                                                     </td>
+                                                     <td className="p-2 text-center bg-blue-50/30">
+                                                         <input
+                                                             type="number"
+                                                             min="1500"
+                                                             value={c.processingFee}
+                                                             onChange={(e) => updateCartItem(c.id, 'processingFee', e.target.value)}
+                                                             onBlur={(e) => updateCartItem(c.id, 'processingFee', Math.max(1500, Number(e.target.value) || 1500))}
+                                                             className="w-14 p-1 text-xs border border-blue-200 rounded font-bold text-blue-700 bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                                                         />
+                                                     </td>
+                                                     <td className="p-2 text-center bg-blue-50/30">
+                                                         <input
+                                                             type="number"
+                                                             value={c.packingFee}
+                                                             onChange={(e) => updateCartItem(c.id, 'packingFee', e.target.value)}
+                                                             onBlur={(e) => updateCartItem(c.id, 'packingFee', Number(e.target.value) || 0)}
+                                                             className="w-12 p-1 text-xs border border-blue-200 rounded font-bold text-blue-700 bg-blue-50 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                                                         />
+                                                     </td>
+                                                     <td className="p-2 text-right font-medium bg-blue-50/30 cursor-pointer hover:bg-blue-100/50 transition-colors group" onClick={(e) => handleCopyPrice(c.sellingPrice, e)}>
+                                                         <div className="flex justify-end items-center gap-1">
+                                                             {formatIDR(c.sellingPrice)}
+                                                             <Copy className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100" />
+                                                         </div>
+                                                     </td>
+                                                     <td className="p-2 text-right text-green-700 cursor-pointer hover:bg-green-50 transition-colors group" onClick={(e) => handleCopyPrice(c.priceMin3, e)}>
+                                                         <div className="flex justify-end items-center gap-1">
+                                                             {formatIDR(c.priceMin3)}
+                                                             <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100" />
+                                                         </div>
+                                                     </td>
+                                                     <td className="p-2 text-right text-green-700 cursor-pointer hover:bg-green-50 transition-colors group" onClick={(e) => handleCopyPrice(c.priceMin6, e)}>
+                                                         <div className="flex justify-end items-center gap-1">
+                                                             {formatIDR(c.priceMin6)}
+                                                             <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100" />
+                                                         </div>
+                                                     </td>
+                                                     <td className="p-2 text-right text-green-700 cursor-pointer hover:bg-green-50 transition-colors group" onClick={(e) => handleCopyPrice(c.priceMin12, e)}>
+                                                         <div className="flex justify-end items-center gap-1">
+                                                             {formatIDR(c.priceMin12)}
+                                                             <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100" />
+                                                         </div>
+                                                     </td>
+                                                     <td className="p-2 text-right text-green-700 cursor-pointer hover:bg-green-50 transition-colors group" onClick={(e) => { if(c.customQtyValue) handleCopyPrice(c.priceCustom, e); }}>
+                                                         {c.customQtyValue ? (
+                                                             <div className="flex justify-end items-center gap-1">
+                                                                 <div className="text-right">
+                                                                     <div>{formatIDR(c.priceCustom)}</div>
+                                                                     <div className="text-[9px] text-green-700 opacity-80">Min: {c.customQtyValue}</div>
+                                                                 </div>
+                                                                 <Copy className="w-3 h-3 text-green-400 opacity-0 group-hover:opacity-100" />
+                                                             </div>
+                                                         ) : '-'}
+                                                     </td>
+                                                     <td className="p-2 text-center sticky right-0 bg-white shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
+                                                         <button onClick={()=>setCart(cart.filter(x=>x.id!==c.id))} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"><Trash2 className="w-3.5 h-3.5 mx-auto"/></button>
+                                                     </td>
+                                                 </tr>
+                                             ))}
+                                         </tbody>
+                                     </table>
+                                 </div>
+                                 <div className="p-2 text-[9px] text-slate-400 italic bg-slate-50 border-t">*Klik pada harga manapun di tabel ini untuk meng-copy nilainya.</div>
+                                 {cart.length > 0 && isAdmin && <div className="p-3 bg-slate-50 border-t"><textarea className="w-full p-2 text-xs border rounded" placeholder="Catatan opsional..." value={submissionNote} onChange={e=>setSubmissionNote(e.target.value)}></textarea></div>}
+                             </Card>
+                         </div>
+                     </div>
+                 )}
+
+                 {activeView === 'competitor' && (
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                         <div className="lg:col-span-1 space-y-6">
+                                <Card className="p-5 relative flex flex-col h-full">
+                                    <div className="flex justify-between items-center mb-4"><h3 className="font-semibold flex items-center text-slate-700"><Database className="w-4 h-4 mr-2 text-blue-500" /> Pilih Produk</h3><button onClick={fetchCsvData} disabled={isLoading} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-blue-600 disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button></div>
+                                    <div className="relative mb-4">
+                                        <div className="flex items-center justify-between w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all group" onClick={() => { if (showProductList) setMultiSelectedSkus([]); setShowProductList(!showProductList); }}><span className={`truncate font-medium flex-1 mr-2 ${selectedSku ? 'text-slate-800' : 'text-slate-400'}`}>{selectedSku ? `${selectedSku} - ${selectedProductData?.name}` : 'Pilih Produk...'}</span><ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-blue-500" /></div>
+                                        {showProductList && (<div className="absolute z-50 top-full left-0 right-0 md:right-auto md:w-[150%] lg:w-[180%] mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-96 overflow-y-auto flex flex-col">
+                                            <div className="p-3 sticky top-0 bg-slate-50 border-b shadow-sm z-10 flex flex-col gap-2">
+                                                <div className="relative">
+                                                    <Search className="w-4 h-4 absolute left-2 top-2.5 text-slate-400" />
+                                                    <input autoFocus type="text" className="w-full p-2 pl-8 border border-slate-300 rounded text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Cari SKU atau Nama Produk..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                {filteredProducts.slice(0, 50).map((p, i) => (
+                                                    <div key={i} className="p-3 text-xs hover:bg-blue-50 border-b last:border-0 border-slate-100 transition-colors flex items-center gap-3">
+                                                        <div className="flex-1 cursor-pointer" onClick={() => handleSelectProduct(p)}>
+                                                            <div className="font-bold text-slate-800">{p.name}</div>
+                                                            <div className="text-slate-500 flex justify-between mt-1">
+                                                                <span>{p.sku}</span>
+                                                                <span className="font-medium text-blue-600">Ecer: {formatIDR(p.eceran)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>)}
+                                    </div>
+                                    <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-100">
+                                        <label className="block text-xs font-bold text-blue-800 mb-1">Harga Tayang Kita (Edit)</label>
+                                        <input type="text" inputMode="numeric" className="w-full p-2 text-lg font-bold text-blue-700 border border-blue-300 rounded" value={formatInput(compForm.ownPrice)} onChange={e => setCompForm({...compForm, ownPrice: parseInput(e.target.value)})} placeholder={String(t1Result.sellingPrice)} />
+                                    </div>
+                                </Card>
+                         </div>
+                         <div className="lg:col-span-2 space-y-6">
+                             <Card className="p-5 border-t-4 border-t-red-500">
+                                 <div className="flex justify-between mb-4"><h3 className="font-bold flex items-center text-slate-800"><Eye className="w-5 h-5 mr-2 text-red-600"/> Form Kompetitor</h3><button onClick={addToCompetitorCart} disabled={!selectedSku || !compForm.compAName} className="bg-red-600 text-white text-xs font-bold py-2 px-4 rounded hover:bg-red-700">+ Tambah Banding</button></div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div className="p-3 bg-slate-50 rounded border">
+                                         <h4 className="font-bold text-slate-600 mb-2 border-b pb-1">Kompetitor A (Utama)</h4>
+                                         <div className="space-y-2">
+                                             <input list="competitors-list" className="w-full p-2 border rounded text-xs" placeholder="Nama Toko" value={compForm.compAName} name="compAName" onChange={handleCompFormChange} />
+                                             <input type="text" inputMode="numeric" className="w-full p-2 border rounded text-xs" placeholder="Harga Tayang" value={formatInput(compForm.compAPrice)} name="compAPrice" onChange={handleCompFormChange} />
+                                             <input type="text" className="w-full p-2 border rounded text-xs" placeholder="Link Produk" value={compForm.compALink} name="compALink" onChange={handleCompFormChange} />
+                                         </div>
+                                     </div>
+                                     <div className="p-3 bg-slate-50 rounded border border-dashed">
+                                         <h4 className="font-bold text-slate-500 mb-2 border-b pb-1">Kompetitor B (Opsional)</h4>
+                                         <div className="space-y-2">
+                                             <input list="competitors-list" className="w-full p-2 border rounded text-xs" placeholder="Nama Toko" value={compForm.compBName} name="compBName" onChange={handleCompFormChange} />
+                                             <input type="text" inputMode="numeric" className="w-full p-2 border rounded text-xs" placeholder="Harga Tayang" value={formatInput(compForm.compBPrice)} name="compBPrice" onChange={handleCompFormChange} />
+                                             <input type="text" className="w-full p-2 border rounded text-xs" placeholder="Link Produk" value={compForm.compBLink} name="compBLink" onChange={handleCompFormChange} />
+                                         </div>
+                                     </div>
+                                 </div>
+                             </Card>
+                             <Card className="p-0 overflow-hidden">
+                                 <div className="p-3 bg-slate-50 border-b flex justify-between items-center"><h4 className="font-bold text-sm">Daftar Banding ({competitorCart.length})</h4>
+                                    {competitorCart.length > 0 && isAdmin && <button onClick={() => handleSendSubmission('competitor')} disabled={isSending} className="bg-orange-600 text-white text-[10px] font-bold px-3 py-1.5 rounded hover:bg-orange-700">{isSending ? '...' : 'Kirim'}</button>}
+                                 </div>
+                                 <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left">
+                                        <thead className="bg-slate-100 font-bold text-slate-600"><tr><th className="p-2">Produk</th><th className="p-2 text-right">Kita</th><th className="p-2">Komp A</th><th className="p-2 text-right">Harga A</th><th className="p-2">Komp B</th><th className="p-2 text-right">Harga B</th><th className="p-2 text-center">Aksi</th></tr></thead>
+                                        <tbody className="divide-y">
+                                            {competitorCart.map(c => (
+                                                <tr key={c.id}>
+                                                    <td className="p-2">{c.sku}</td><td className="p-2 text-right font-bold text-blue-600">{formatIDR(c.ownPrice)}</td>
+                                                    <td className="p-2">{c.compAName}</td><td className="p-2 text-right font-bold text-red-600">{formatIDR(c.compAPrice)}</td>
+                                                    <td className="p-2">{c.compBName || '-'}</td><td className="p-2 text-right text-slate-500">{c.compBPrice ? formatIDR(c.compBPrice) : '-'}</td>
+                                                    <td className="p-2 text-center"><button onClick={()=>setCompetitorCart(competitorCart.filter(x=>x.id!==c.id))} className="text-red-500"><Trash2 className="w-3 h-3"/></button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                 </div>
+                                 {competitorCart.length > 0 && isAdmin && <div className="p-3 bg-slate-50 border-t"><textarea className="w-full p-2 text-xs border rounded" placeholder="Catatan review..." value={submissionNote} onChange={e=>setSubmissionNote(e.target.value)}></textarea></div>}
+                             </Card>
+                         </div>
+                     </div>
+                 )}
+
+                 {/* INBOX & HISTORY */}
+                 {(activeView === 'inbox' || activeView === 'history') && (
+                    <div className="max-w-7xl mx-auto space-y-8">
+                        <div className="flex justify-between items-center pb-4 border-b border-slate-200"><h2 className="text-xl font-bold text-slate-800 flex items-center">{isServer ? <Inbox className="w-6 h-6 mr-2 text-blue-600" /> : <FileText className="w-6 h-6 mr-2 text-blue-600" />}{isServer ? 'Inbox Pengajuan' : 'Riwayat Pengajuan'}</h2><div className="flex items-center gap-3"><button onClick={handleRefreshSubmissions} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg flex items-center transition-colors"><RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing || isLoadingHistory ? 'animate-spin text-blue-500' : ''}`} /> {isRefreshing || isLoadingHistory ? 'Memuat...' : 'Refresh'}</button>{isServer && (<button onClick={() => downloadHistoryDB(submissions)} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg flex items-center transition-colors"><Download className="w-3 h-3 mr-1" /> Download DB</button>)}</div></div>
+                        
+                        {/* Server Quick Calculator */}
+                        {isServer && activeView === 'inbox' && (
+                            <ServerQuickCalculator fees={fees} />
+                        )}
+
+                        {/* PENDING SECTION */}
+                        <div>
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                                <h3 className="text-lg font-bold text-slate-700 flex items-center"><Clock className="w-5 h-5 mr-2 text-yellow-500" /> Menunggu Konfirmasi</h3>
+                                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                                    <button onClick={() => {setPendingFilter('all'); setPendingPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${pendingFilter === 'all' ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Semua</button>
+                                    <button onClick={() => {setPendingFilter('pending'); setPendingPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${pendingFilter === 'pending' ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Baru</button>
+                                    <button onClick={() => {setPendingFilter('revision'); setPendingPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${pendingFilter === 'revision' ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Revisi</button>
+                                </div>
+                            </div>
+                            <div className="space-y-6">
+                                {paginatedPending.length === 0 ? <p className="text-sm text-slate-400 italic">Tidak ada data.</p> : 
+                                    pendingSenders.map(sender => (
+                                        <div key={sender} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                            <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                                                <div className="flex items-center">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs uppercase mr-3">{sender.slice(0, 2)}</div>
+                                                    <span className="font-bold text-slate-700 uppercase tracking-wide text-sm">{sender}</span>
+                                                </div>
+                                                <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold border border-yellow-200">{groupedPending[sender].length} Item</span>
+                                            </div>
+                                            <div className="p-3 space-y-3 bg-slate-50/30">
+                                                {groupedPending[sender].map(sub => (
+                                                    <SubmissionCard key={sub.id} sub={sub} currentUser={currentUser} isServer={isServer} isAdmin={isAdmin} canSeeHPP={canSeeHPP} serverDrafts={serverDrafts} expandedSubmissionId={expandedSubmissionId} onToggle={handleToggleExpand} onDraftChange={handleServerDraftChange} onUpdateStatus={handleUpdateStatus} onEdit={handleEditSubmission} formatIDR={formatIDR} formatDateTime={formatDateTime} productList={productList} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                             {/* Pagination Pending */}
+                            {totalPendingPages > 1 && (
+                                <div className="flex justify-center items-center mt-4 gap-4">
+                                    <button onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronLeft className="w-5 h-5"/></button>
+                                    <span className="text-xs text-slate-500 font-medium">Halaman {pendingPage} dari {totalPendingPages}</span>
+                                    <button onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))} disabled={pendingPage === totalPendingPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronRight className="w-5 h-5"/></button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* COMPLETED SECTION */}
+                        <div className="pt-6 border-t border-dashed border-slate-300">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                                <h3 className="text-lg font-bold text-slate-700 flex items-center"><FileSpreadsheet className="w-5 h-5 mr-2 text-green-600" /> Riwayat Selesai</h3>
+                                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                                    <button onClick={() => {setCompletedFilter('all'); setCompletedPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${completedFilter === 'all' ? 'bg-white shadow text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Semua</button>
+                                    <button onClick={() => {setCompletedFilter('approved'); setCompletedPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${completedFilter === 'approved' ? 'bg-white shadow text-green-700 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Disetujui</button>
+                                    <button onClick={() => {setCompletedFilter('rejected'); setCompletedPage(1);}} className={`px-3 py-1 text-xs rounded-md transition-all ${completedFilter === 'rejected' ? 'bg-white shadow text-red-700 font-bold' : 'text-slate-500 hover:text-slate-700'}`}>Ditolak</button>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-6">
+                                {paginatedCompleted.length === 0 ? <p className="text-sm text-slate-400 italic">Belum ada riwayat.</p> : 
+                                completedSenders.map(sender => (
+                                    <div key={sender} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm opacity-90 hover:opacity-100 transition-opacity">
+                                        <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                                            <div className="flex items-center">
+                                                <User className="w-4 h-4 text-slate-400 mr-2"/>
+                                                <span className="font-semibold text-slate-600 uppercase text-xs">{sender}</span>
+                                            </div>
+                                            <span className="text-[10px] text-slate-400">{groupedCompleted[sender].length} Item</span>
+                                        </div>
+                                        <div className="p-2 space-y-2">
+                                            {groupedCompleted[sender].map(sub => (
+                                                <SubmissionCard key={sub.id} sub={sub} currentUser={currentUser} isServer={isServer} isAdmin={isAdmin} canSeeHPP={canSeeHPP} serverDrafts={serverDrafts} expandedSubmissionId={expandedSubmissionId} onToggle={handleToggleExpand} onDraftChange={handleServerDraftChange} onUpdateStatus={handleUpdateStatus} onEdit={handleEditSubmission} formatIDR={formatIDR} formatDateTime={formatDateTime} productList={productList} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                                }
+                            </div>
+
+                            {/* Pagination Completed */}
+                            {totalCompletedPages > 1 && (
+                                <div className="flex justify-center items-center mt-4 gap-4">
+                                    <button onClick={() => setCompletedPage(p => Math.max(1, p - 1))} disabled={completedPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronLeft className="w-5 h-5"/></button>
+                                    <span className="text-xs text-slate-500 font-medium">Halaman {completedPage} dari {totalCompletedPages}</span>
+                                    <button onClick={() => setCompletedPage(p => Math.min(totalCompletedPages, p + 1))} disabled={completedPage === totalCompletedPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronRight className="w-5 h-5"/></button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                 )}
+              </div>
+            </div>
+          );
+        }
+
+        // --- Render the Application ---
+        const rootElement = document.getElementById('root');
+        const root = createRoot(rootElement);
+        root.render(<App />);
+    </script>
+</body>
+</html>
