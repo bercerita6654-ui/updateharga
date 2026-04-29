@@ -405,6 +405,7 @@
           const [massMargin, setMassMargin] = useState('');
           const [massFee, setMassFee] = useState('');
           const [massPack, setMassPack] = useState(''); // State Packing Massal
+          const [massHppRef, setMassHppRef] = useState(''); // State Acuan HPP Massal
           
           // --- STATE UNTUK BATCH ADD DROPDOWN ---
           const [multiSelectedSkus, setMultiSelectedSkus] = useState([]);
@@ -965,17 +966,19 @@
           };
 
           const applyMassUpdate = () => {
-              if (!massMargin && !massFee && massPack === '') return;
+              if (!massMargin && !massFee && massPack === '' && !massHppRef) return;
 
               setCart(prevCart => prevCart.map(item => {
                   const newMargin = massMargin ? Number(massMargin) : item.margin;
                   const newFee = massFee !== '' ? Number(massFee) : (item.processingFee || 0);
                   const newPackFee = massPack !== '' ? Number(massPack) : (item.packingFee || 0);
+                  const newHpp = massHppRef ? (item[massHppRef] || 0) : item.hpp;
                   
-                  const prices = calculateItemPrices(item.hpp, newMargin, newFee, newPackFee, item.customQtyValue, rounding);
+                  const prices = calculateItemPrices(newHpp, newMargin, newFee, newPackFee, item.customQtyValue, rounding);
 
                   return {
                       ...item,
+                      hpp: newHpp,
                       margin: newMargin,
                       processingFee: newFee,
                       packingFee: newPackFee,
@@ -991,6 +994,7 @@
               setMassMargin('');
               setMassFee('');
               setMassPack('');
+              setMassHppRef('');
           };
 
           const handleSaveFees = async () => {
@@ -1638,7 +1642,16 @@
                                                      onChange={handleProductChange} 
                                                  />
                                              </div>
-                                             <p className="text-[9px] text-slate-400 mt-1 italic">*Edit angka ini untuk mengubah perhitungan sementara.</p>
+                                             {selectedProductData && (
+                                                 <div className="flex flex-wrap gap-1.5 mt-2 items-center">
+                                                     <span className="text-[10px] text-slate-500">Acuan:</span>
+                                                     <button onClick={() => setProduct(p => ({...p, hpp: selectedProductData.hpp || 0}))} className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-[9px] font-bold text-slate-700 transition-colors">HPP Asli</button>
+                                                     <button onClick={() => setProduct(p => ({...p, hpp: selectedProductData.eceran || 0}))} className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded text-[9px] font-bold text-blue-700 transition-colors">Eceran</button>
+                                                     <button onClick={() => setProduct(p => ({...p, hpp: selectedProductData.grosir || 0}))} className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded text-[9px] font-bold text-orange-700 transition-colors">Grosir</button>
+                                                     <button onClick={() => setProduct(p => ({...p, hpp: selectedProductData.partai || 0}))} className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded text-[9px] font-bold text-purple-700 transition-colors">Partai</button>
+                                                 </div>
+                                             )}
+                                             <p className="text-[9px] text-slate-400 mt-1.5 italic">*Pilih acuan di atas atau edit angka manual untuk mengubah perhitungan sementara.</p>
                                          </div>
                                      )}
                                      
@@ -1880,6 +1893,22 @@
                                              </select>
                                          </div>
                                          <div className="flex flex-wrap gap-2 items-end sm:border-l sm:border-slate-300 sm:pl-4">
+                                             {canSeeHPP && (
+                                                 <div>
+                                                     <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Acuan Modal</label>
+                                                     <select 
+                                                         className="text-xs p-1.5 border rounded border-slate-300 w-full sm:w-24 bg-white"
+                                                         value={massHppRef}
+                                                         onChange={(e) => setMassHppRef(e.target.value)}
+                                                     >
+                                                         <option value="">-- Biarkan --</option>
+                                                         <option value="hpp">HPP Asli</option>
+                                                         <option value="eceran">Eceran</option>
+                                                         <option value="grosir">Grosir</option>
+                                                         <option value="partai">Partai</option>
+                                                     </select>
+                                                 </div>
+                                             )}
                                              <div>
                                                  <label className="text-[10px] font-bold text-slate-600 block mb-1">Set Margin Massal (%)</label>
                                                  <select 
@@ -1915,7 +1944,7 @@
                                              </div>
                                              <button 
                                                  onClick={applyMassUpdate}
-                                                 disabled={!massMargin && !massFee && massPack === ''}
+                                                 disabled={!massMargin && !massFee && massPack === '' && !massHppRef}
                                                  className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                              >
                                                  Terapkan
