@@ -510,7 +510,12 @@
           const [activeView, setActiveView] = useState('calculator'); 
           const [displayLimit, setDisplayLimit] = useState(50);
           
-          const [fees, setFees] = useState({ 
+          const [fees, setFees] = useState(() => {
+            try {
+                const localFees = localStorage.getItem('marketplace_fees');
+                if (localFees) return JSON.parse(localFees);
+            } catch (e) {}
+            return { 
               adminFee: 10.0, 
               layananXtra: 5.5, 
               marketplaceProcessingFee: 1250, 
@@ -518,6 +523,7 @@
               insurance: 0.5, 
               packingFee: 550, 
               komisiAMS: 1.0 
+            };
           });
           
           const [customQty, setCustomQty] = useState(24);
@@ -530,7 +536,7 @@
 
           const showNotif = (msg) => {
               setNotification(msg);
-              setTimeout(() => setNotification(''), 3000);
+              setTimeout(() => setNotification(''), 4000);
           };
 
           const handleCopyPrice = (price, e) => {
@@ -740,6 +746,7 @@
                         }
                     });
                     setFees(newFees);
+                    localStorage.setItem('marketplace_fees', JSON.stringify(newFees));
                 }
               } catch(e) { console.warn('Gagal memuat biaya marketplace:', e.message); }
           }, []);
@@ -1062,10 +1069,11 @@
           const handleSaveFees = async () => {
               setIsSavingFees(true);
               try {
+                  localStorage.setItem('marketplace_fees', JSON.stringify(fees));
                   await fetch(APPS_SCRIPT_URL, {
                       method: 'POST',
                       mode: 'no-cors',
-                      headers: { 'Content-Type': 'application/json' },
+                      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                       body: JSON.stringify({
                           action: 'updateFees',
                           sheetId: '1HSUiF20wpTJbfYdpOE08gtbRzm1N8IXOrZDs-KGSvnI',
@@ -1073,7 +1081,7 @@
                           payload: fees
                       })
                   });
-                  showNotif('Pengaturan Biaya Berhasil Disimpan!');
+                  showNotif('Pengaturan Biaya Berhasil Disimpan! (Tunggu sinkronisasi)');
                   setShowSettings(false);
               } catch(e) {
                   showNotif('Gagal menyimpan biaya');
@@ -1129,7 +1137,7 @@
                   serverNote: '', revisions: { _clientNote: submissionNote }, clientNote: submissionNote
               };
               try {
-                  await fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: isEditing ? 'update' : 'add', payload }) });
+                  await fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({ action: isEditing ? 'update' : 'add', payload }) });
                   setSubmissions(prev => {
                       const exists = prev.find(i => i.id === subId);
                       if (exists && !isEditing) return prev;
@@ -1157,7 +1165,7 @@
             const finalStatus = globalStatus === 'reviewed' ? 'completed' : globalStatus;
             const payload = { id: id, status: finalStatus, handledAt: new Date().toISOString(), serverNote: draft.note, revisions: { ...currentSub.revisions, ...draft.revisions }, items: updatedItems, isRead: true };
             setSubmissions(prev => prev.map(sub => sub.id === id ? { ...sub, ...payload } : sub));
-            fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'update', payload }) }).catch(e => {});
+            fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({ action: 'update', payload }) }).catch(e => {});
             const newDrafts = { ...serverDrafts }; delete newDrafts[id]; setServerDrafts(newDrafts);
           };
 
@@ -1183,7 +1191,7 @@
              const sub = submissions.find(s => s.id === id);
              if (sub && !sub.isRead) {
                 setSubmissions(prev => prev.map(s => s.id === id ? { ...s, isRead: true } : s));
-                fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'markRead', payload: { id: id } }) }).catch(e => {});
+                fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({ action: 'markRead', payload: { id: id } }) }).catch(e => {});
              }
           };
 
