@@ -673,6 +673,7 @@
           const userLower = String(currentUser || '').toLowerCase();
           const isServer = ['server', 'bobby'].includes(userLower);
           const isAdmin = ['admin', 'stefany', 'isa', 'winda'].includes(userLower);
+          const canEditSettings = isAdmin || userLower === 'bobby';
           const canSeeHPP = isServer;
           const totalPercentFeeVal = (Number(fees.adminFee) || 0) + (Number(fees.layananXtra) || 0) + (Number(fees.insurance) || 0) + (Number(fees.komisiAMS) || 0);
           const filteredProducts = productList.filter(p => {
@@ -1438,7 +1439,7 @@
                         <button onClick={() => setActiveView('calculator')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'calculator' ? 'bg-white shadow' : ''}`}>Kalkulator</button>
                         <button onClick={() => setActiveView('competitor')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'competitor' ? 'bg-white shadow' : ''}`}>Kompetitor</button>
                         <button onClick={() => setActiveView(isServer ? 'inbox' : 'history')} className={`px-4 py-2 text-xs font-bold rounded ${activeView === 'inbox' || activeView === 'history' ? 'bg-white shadow' : ''} flex items-center`}>{isServer ? 'Inbox' : 'Riwayat'} {pendingList.length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 rounded-full">{pendingList.length}</span>}</button>
-                        {isAdmin && <button onClick={() => setShowSettings(true)} className="px-3 text-slate-500 hover:text-slate-800" title="Pengaturan Biaya"><Settings className="w-4 h-4"/></button>}
+                        {canEditSettings && <button onClick={() => setShowSettings(true)} className="px-3 text-slate-500 hover:text-slate-800" title="Pengaturan Biaya"><Settings className="w-4 h-4"/></button>}
                         <button onClick={() => { setIsLoggedIn(false); setCurrentUser(null); localStorage.removeItem('marketplace_submissions'); }} className="text-red-500 text-xs font-bold px-3"><LogOut className="w-4 h-4"/></button>
                      </div>
                  </header>
@@ -1719,7 +1720,7 @@
                                      <div className="bg-slate-100 border border-slate-200 rounded-lg p-3 mt-4">
                                          <div className="flex justify-between items-center mb-2 border-b border-slate-200 pb-2">
                                              <h4 className="text-[11px] font-bold text-slate-700">Rincian Biaya Marketplace</h4>
-                                             {isAdmin && <button onClick={() => setShowSettings(true)} className="text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center" title="Simpan sebagai nilai default ke Spreadsheet"><Settings className="w-3 h-3 mr-1"/> Simpan Default</button>}
+                                             {canEditSettings && <button onClick={() => setShowSettings(true)} className="text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center" title="Simpan sebagai nilai default ke Spreadsheet"><Settings className="w-3 h-3 mr-1"/> Simpan Default</button>}
                                          </div>
                                          
                                          <div className="grid grid-cols-4 gap-2 mb-2">
